@@ -17,26 +17,26 @@
         <nav class="navbar  navbar-default">
             <ul class="nav navbar-tabs">
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin' class='nav-link' active>TOP </a>
+                    <a href='/admin' class='nav-link' active>TOP </a>
                 </li>
                 <li class=' nav-item'>
-                    <a href='http://localhost:8000/admin/users' class='nav-link' active>マイページ </a>
+                    <a href='/admin/users' class='nav-link' active>マイページ </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin/userfollow' class='nav-link' active>ユーザー応援 </a>
+                    <a href='/admin/userfollow' class='nav-link' active>ユーザー応援 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin/task' class='nav-link' active>タスク管理 </a>
+                    <a href='/admin/task' class='nav-link' active>タスク管理 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin/usermessage' class='nav-link' active>最近登録した人 </a>
+                    <a href='/admin/usermessage' class='nav-link' active>最近登録した人 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin/goal' class='nav-link' active>最近登録された目標 </a>
+                    <a href='/admin/goal' class='nav-link' active>最近登録された目標 </a>
                 </li>
             </ul>
         </nav>
@@ -71,8 +71,8 @@
     </div>
     </div>
 
-    <div class="flexbox-container">
-        <div class="calender col-md-10 row">
+    <div class="flexbox-container row">
+        <div class="calender col-md-9 h-75">
             <main>
                 <p>カレンダー</P>
             </main>
