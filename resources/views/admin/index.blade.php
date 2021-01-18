@@ -20,23 +20,23 @@
                     <a href='/admin' class='nav-link' active>TOP </a>
                 </li>
                 <li class=' nav-item'>
-                    <a href='/admin/users' class='nav-link' active>マイページ </a>
+                    <a href='/admin/user/edit' class='nav-link' active>マイページ </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='/admin/userfollow' class='nav-link' active>ユーザー応援 </a>
+                    <a href='/admin/userfollow/edit' class='nav-link' active>ユーザー応援 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='/admin/task' class='nav-link' active>タスク管理 </a>
+                    <a href='/admin/task/edit' class='nav-link' active>タスク管理 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='/admin/usermessage' class='nav-link' active>最近登録した人 </a>
+                    <a href='/admin/usermessage/edit' class='nav-link' active>最近登録した人 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='/admin/goal' class='nav-link' active>最近登録された目標 </a>
+                    <a href='/admin/goal/edit' class='nav-link' active>最近登録された目標 </a>
                 </li>
             </ul>
         </nav>
@@ -87,7 +87,7 @@
                 <div>年齢</div>
                 <div>趣味</div>
                 <div>ひとこと</div>
-                <a href='http://localhost:8000/admin/user' class='nav-link' active>マイアカウントの編集</a>
+                <a href='/admin/user' class='nav-link' active>マイアカウントの編集</a>
             </div>
 
             <div class="rounded">
@@ -96,7 +96,7 @@
                 <div>応援メッセージ</div>
                 <div>応援メッセージ</div>
                 <div>応援メッセージ</div>
-                <a href='http://localhost:8000/admin/usermessage' class='nav-link' active>もっと見る</a>
+                <a href='/admin/usermessage' class='nav-link' active>もっと見る</a>
             </div>
 
             <div class="rounded">

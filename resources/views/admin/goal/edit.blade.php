@@ -17,120 +17,47 @@
         <nav class="navbar  navbar-default">
             <ul class="nav navbar-tabs">
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin' class='nav-link' active>TOP </a>
+                    <a href='/admin' class='nav-link' active>TOP </a>
                 </li>
                 <li class=' nav-item'>
-                    <a href='http://localhost:8000/admin/users' class='nav-link' active>マイページ </a>
+                    <a href='/admin/user/edit' class='nav-link' active>マイページ </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin/userfollow' class='nav-link' active>ユーザー応援 </a>
+                    <a href='/admin/userfollow/edit' class='nav-link' active>ユーザー応援 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin/task' class='nav-link' active>タスク管理 </a>
+                    <a href='/admin/task/edit' class='nav-link' active>タスク管理 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin/usermessage' class='nav-link' active>最近登録した人 </a>
+                    <a href='/admin/usermessage/edit' class='nav-link' active>最近登録した人 </a>
 
                 </li>
                 <li class='nav-item'>
-                    <a href='http://localhost:8000/admin/goal' class='nav-link' active>最近登録された目標 </a>
+                    <a href='/admin/goal/edit' class='nav-link' active>最近登録された目標 </a>
                 </li>
             </ul>
         </nav>
     </div>
-    <div class="container-fluid">
-        <div>
-            <div class="goal-description col-md-12 row">
-                <div class="col-md-12">
-                    <div class="bg-info text-white">実行宣言を入力してください</div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="container-fluid">
-        <div>
-            <div class="task-list col-md-12 row">
-                <div class="col-md-3">
-                    <div class="bg-info text-white">タスク内容</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">状態</div>
-                    <select name="status">
-                        <option value="実行中">実行中</option>
-                        <option value="未着手">未着手</option>
-                        <option value="完了">完了</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">期限</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">完了日</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">タスク内容</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">状態</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">期限</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">完了日</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">タスク内容</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">状態</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">期限</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">完了日</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">タスク内容</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">状態</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">期限</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">完了日</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">タスク内容</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">状態</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">期限</div>
-                </div>
-                <div class="col-md-3">
-                    <div class="bg-info text-white">完了日</div>
-                </div>
-            </div>
-        </div>
-        <input type="submit" value="登録">
-    </div>
-
-
-
-
-</body>
-
-
-
-
-
+    <table class="support">
+        <thead>
+            <tr>
+                <th>最近登録した人</th>
+                <th>最近登録された目標</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td height="500">
+                    <p>取得</p>
+                </td>
+                <td height="500">
+                    <p>取得</p>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 
 </html>
