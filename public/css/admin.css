@@ -27,16 +27,11 @@
   height: 3.5em;
 }
 
-main {
-  margin: 20px 10px 10px;
-  display: grid;
-  grid-template-columns: fr fr fr;
-  background-color: lightgreen;
-}
+
 
 aside {
   display: grid;
-  margin-right: 10px;
+  text-align: left;
   gap: 10px;
 }
 
@@ -111,10 +106,10 @@ table td {
   }
 }
 
-div {
+/*div {
   text-align: center;
 }
-
+*/
 .support {
   text-align: center;
   margin-top: 10px;

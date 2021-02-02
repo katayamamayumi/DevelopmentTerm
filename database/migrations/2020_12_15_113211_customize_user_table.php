@@ -15,13 +15,13 @@ class CustomizeUserTable extends Migration
     {
         //ユーザーテーブルのカスタマイズ
         Schema::table('users', function (Blueprint $table) {
-            $table->string('nickname');
-            $table->string('gender');
-            $table->string('hobby');
-            $table->string('birthday');
-            $table->string('word');
-            $table->string('image_path')->nullable();
-            $table->string('image_path_thumbnail')->nullable();
+            $table->string('nickname')->nullable()->default(null);
+            $table->string('gender')->nullable()->default(null);
+            $table->string('hobby')->nullable()->default(null);
+            $table->string('birthday')->nullable()->default(null);
+            $table->string('word')->nullable()->default(null);
+            $table->string('image_path')->nullable()->default(null);
+            $table->string('image_path_thumbnail')->nullable()->default(null);
         });
     }
     /**
@@ -37,8 +37,8 @@ class CustomizeUserTable extends Migration
             $table->dropColumn('hobby');
             $table->dropColumn('birthday');
             $table->dropColumn('word');
-            $table->dropColumn('image_path')->nullable();
-            $table->dropColumn('image_path_thumbnail')->nullable();
+            $table->dropColumn('image_path');
+            $table->dropColumn('image_path_thumbnail');
         });
     }
 }

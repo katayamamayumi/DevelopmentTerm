@@ -109,6 +109,7 @@ module.exports = __webpack_require__(/*! ./lib/axios */ "./node_modules/axios/li
 
 var utils = __webpack_require__(/*! ./../utils */ "./node_modules/axios/lib/utils.js");
 var settle = __webpack_require__(/*! ./../core/settle */ "./node_modules/axios/lib/core/settle.js");
+var cookies = __webpack_require__(/*! ./../helpers/cookies */ "./node_modules/axios/lib/helpers/cookies.js");
 var buildURL = __webpack_require__(/*! ./../helpers/buildURL */ "./node_modules/axios/lib/helpers/buildURL.js");
 var buildFullPath = __webpack_require__(/*! ../core/buildFullPath */ "./node_modules/axios/lib/core/buildFullPath.js");
 var parseHeaders = __webpack_require__(/*! ./../helpers/parseHeaders */ "./node_modules/axios/lib/helpers/parseHeaders.js");
@@ -129,7 +130,7 @@ module.exports = function xhrAdapter(config) {
     // HTTP basic authentication
     if (config.auth) {
       var username = config.auth.username || '';
-      var password = config.auth.password || '';
+      var password = config.auth.password ? unescape(encodeURIComponent(config.auth.password)) : '';
       requestHeaders.Authorization = 'Basic ' + btoa(username + ':' + password);
     }
 
@@ -210,8 +211,6 @@ module.exports = function xhrAdapter(config) {
     // This is only done if running in a standard browser environment.
     // Specifically not if we're in a web worker, or react-native.
     if (utils.isStandardBrowserEnv()) {
-      var cookies = __webpack_require__(/*! ./../helpers/cookies */ "./node_modules/axios/lib/helpers/cookies.js");
-
       // Add xsrf header
       var xsrfValue = (config.withCredentials || isURLSameOrigin(fullPath)) && config.xsrfCookieName ?
         cookies.read(config.xsrfCookieName) :
@@ -277,7 +276,7 @@ module.exports = function xhrAdapter(config) {
       });
     }
 
-    if (requestData === undefined) {
+    if (!requestData) {
       requestData = null;
     }
 
@@ -345,6 +344,9 @@ axios.all = function all(promises) {
   return Promise.all(promises);
 };
 axios.spread = __webpack_require__(/*! ./helpers/spread */ "./node_modules/axios/lib/helpers/spread.js");
+
+// Expose isAxiosError
+axios.isAxiosError = __webpack_require__(/*! ./helpers/isAxiosError */ "./node_modules/axios/lib/helpers/isAxiosError.js");
 
 module.exports = axios;
 
@@ -554,9 +556,10 @@ Axios.prototype.getUri = function getUri(config) {
 utils.forEach(['delete', 'get', 'head', 'options'], function forEachMethodNoData(method) {
   /*eslint func-names:0*/
   Axios.prototype[method] = function(url, config) {
-    return this.request(utils.merge(config || {}, {
+    return this.request(mergeConfig(config || {}, {
       method: method,
-      url: url
+      url: url,
+      data: (config || {}).data
     }));
   };
 });
@@ -564,7 +567,7 @@ utils.forEach(['delete', 'get', 'head', 'options'], function forEachMethodNoData
 utils.forEach(['post', 'put', 'patch'], function forEachMethodWithData(method) {
   /*eslint func-names:0*/
   Axios.prototype[method] = function(url, data, config) {
-    return this.request(utils.merge(config || {}, {
+    return this.request(mergeConfig(config || {}, {
       method: method,
       url: url,
       data: data
@@ -824,7 +827,7 @@ module.exports = function enhanceError(error, config, code, request, response) {
   error.response = response;
   error.isAxiosError = true;
 
-  error.toJSON = function() {
+  error.toJSON = function toJSON() {
     return {
       // Standard
       message: this.message,
@@ -873,59 +876,73 @@ module.exports = function mergeConfig(config1, config2) {
   config2 = config2 || {};
   var config = {};
 
-  var valueFromConfig2Keys = ['url', 'method', 'params', 'data'];
-  var mergeDeepPropertiesKeys = ['headers', 'auth', 'proxy'];
+  var valueFromConfig2Keys = ['url', 'method', 'data'];
+  var mergeDeepPropertiesKeys = ['headers', 'auth', 'proxy', 'params'];
   var defaultToConfig2Keys = [
-    'baseURL', 'url', 'transformRequest', 'transformResponse', 'paramsSerializer',
-    'timeout', 'withCredentials', 'adapter', 'responseType', 'xsrfCookieName',
-    'xsrfHeaderName', 'onUploadProgress', 'onDownloadProgress',
-    'maxContentLength', 'validateStatus', 'maxRedirects', 'httpAgent',
-    'httpsAgent', 'cancelToken', 'socketPath'
+    'baseURL', 'transformRequest', 'transformResponse', 'paramsSerializer',
+    'timeout', 'timeoutMessage', 'withCredentials', 'adapter', 'responseType', 'xsrfCookieName',
+    'xsrfHeaderName', 'onUploadProgress', 'onDownloadProgress', 'decompress',
+    'maxContentLength', 'maxBodyLength', 'maxRedirects', 'transport', 'httpAgent',
+    'httpsAgent', 'cancelToken', 'socketPath', 'responseEncoding'
   ];
+  var directMergeKeys = ['validateStatus'];
+
+  function getMergedValue(target, source) {
+    if (utils.isPlainObject(target) && utils.isPlainObject(source)) {
+      return utils.merge(target, source);
+    } else if (utils.isPlainObject(source)) {
+      return utils.merge({}, source);
+    } else if (utils.isArray(source)) {
+      return source.slice();
+    }
+    return source;
+  }
+
+  function mergeDeepProperties(prop) {
+    if (!utils.isUndefined(config2[prop])) {
+      config[prop] = getMergedValue(config1[prop], config2[prop]);
+    } else if (!utils.isUndefined(config1[prop])) {
+      config[prop] = getMergedValue(undefined, config1[prop]);
+    }
+  }
 
   utils.forEach(valueFromConfig2Keys, function valueFromConfig2(prop) {
-    if (typeof config2[prop] !== 'undefined') {
-      config[prop] = config2[prop];
+    if (!utils.isUndefined(config2[prop])) {
+      config[prop] = getMergedValue(undefined, config2[prop]);
     }
   });
 
-  utils.forEach(mergeDeepPropertiesKeys, function mergeDeepProperties(prop) {
-    if (utils.isObject(config2[prop])) {
-      config[prop] = utils.deepMerge(config1[prop], config2[prop]);
-    } else if (typeof config2[prop] !== 'undefined') {
-      config[prop] = config2[prop];
-    } else if (utils.isObject(config1[prop])) {
-      config[prop] = utils.deepMerge(config1[prop]);
-    } else if (typeof config1[prop] !== 'undefined') {
-      config[prop] = config1[prop];
-    }
-  });
+  utils.forEach(mergeDeepPropertiesKeys, mergeDeepProperties);
 
   utils.forEach(defaultToConfig2Keys, function defaultToConfig2(prop) {
-    if (typeof config2[prop] !== 'undefined') {
-      config[prop] = config2[prop];
-    } else if (typeof config1[prop] !== 'undefined') {
-      config[prop] = config1[prop];
+    if (!utils.isUndefined(config2[prop])) {
+      config[prop] = getMergedValue(undefined, config2[prop]);
+    } else if (!utils.isUndefined(config1[prop])) {
+      config[prop] = getMergedValue(undefined, config1[prop]);
+    }
+  });
+
+  utils.forEach(directMergeKeys, function merge(prop) {
+    if (prop in config2) {
+      config[prop] = getMergedValue(config1[prop], config2[prop]);
+    } else if (prop in config1) {
+      config[prop] = getMergedValue(undefined, config1[prop]);
     }
   });
 
   var axiosKeys = valueFromConfig2Keys
     .concat(mergeDeepPropertiesKeys)
-    .concat(defaultToConfig2Keys);
+    .concat(defaultToConfig2Keys)
+    .concat(directMergeKeys);
 
   var otherKeys = Object
-    .keys(config2)
+    .keys(config1)
+    .concat(Object.keys(config2))
     .filter(function filterAxiosKeys(key) {
       return axiosKeys.indexOf(key) === -1;
     });
 
-  utils.forEach(otherKeys, function otherKeysDefaultToConfig2(prop) {
-    if (typeof config2[prop] !== 'undefined') {
-      config[prop] = config2[prop];
-    } else if (typeof config1[prop] !== 'undefined') {
-      config[prop] = config1[prop];
-    }
-  });
+  utils.forEach(otherKeys, mergeDeepProperties);
 
   return config;
 };
@@ -954,7 +971,7 @@ var createError = __webpack_require__(/*! ./createError */ "./node_modules/axios
  */
 module.exports = function settle(resolve, reject, response) {
   var validateStatus = response.config.validateStatus;
-  if (!validateStatus || validateStatus(response.status)) {
+  if (!response.status || !validateStatus || validateStatus(response.status)) {
     resolve(response);
   } else {
     reject(createError(
@@ -1086,6 +1103,7 @@ var defaults = {
   xsrfHeaderName: 'X-XSRF-TOKEN',
 
   maxContentLength: -1,
+  maxBodyLength: -1,
 
   validateStatus: function validateStatus(status) {
     return status >= 200 && status < 300;
@@ -1149,7 +1167,6 @@ var utils = __webpack_require__(/*! ./../utils */ "./node_modules/axios/lib/util
 
 function encode(val) {
   return encodeURIComponent(val).
-    replace(/%40/gi, '@').
     replace(/%3A/gi, ':').
     replace(/%24/g, '$').
     replace(/%2C/gi, ',').
@@ -1330,6 +1347,29 @@ module.exports = function isAbsoluteURL(url) {
   // RFC 3986 defines scheme name as a sequence of characters beginning with a letter and followed
   // by any combination of letters, digits, plus, period, or hyphen.
   return /^([a-z][a-z\d\+\-\.]*:)?\/\//i.test(url);
+};
+
+
+/***/ }),
+
+/***/ "./node_modules/axios/lib/helpers/isAxiosError.js":
+/*!********************************************************!*\
+  !*** ./node_modules/axios/lib/helpers/isAxiosError.js ***!
+  \********************************************************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+/**
+ * Determines whether the payload is an error thrown by Axios
+ *
+ * @param {*} payload The value to test
+ * @returns {boolean} True if the payload is an error thrown by Axios, otherwise false
+ */
+module.exports = function isAxiosError(payload) {
+  return (typeof payload === 'object') && (payload.isAxiosError === true);
 };
 
 
@@ -1659,6 +1699,21 @@ function isObject(val) {
 }
 
 /**
+ * Determine if a value is a plain Object
+ *
+ * @param {Object} val The value to test
+ * @return {boolean} True if value is a plain Object, otherwise false
+ */
+function isPlainObject(val) {
+  if (toString.call(val) !== '[object Object]') {
+    return false;
+  }
+
+  var prototype = Object.getPrototypeOf(val);
+  return prototype === null || prototype === Object.prototype;
+}
+
+/**
  * Determine if a value is a Date
  *
  * @param {Object} val The value to test
@@ -1814,34 +1869,12 @@ function forEach(obj, fn) {
 function merge(/* obj1, obj2, obj3, ... */) {
   var result = {};
   function assignValue(val, key) {
-    if (typeof result[key] === 'object' && typeof val === 'object') {
+    if (isPlainObject(result[key]) && isPlainObject(val)) {
       result[key] = merge(result[key], val);
-    } else {
-      result[key] = val;
-    }
-  }
-
-  for (var i = 0, l = arguments.length; i < l; i++) {
-    forEach(arguments[i], assignValue);
-  }
-  return result;
-}
-
-/**
- * Function equal to merge with the difference being that no reference
- * to original objects is kept.
- *
- * @see merge
- * @param {Object} obj1 Object to merge
- * @returns {Object} Result of all merge properties
- */
-function deepMerge(/* obj1, obj2, obj3, ... */) {
-  var result = {};
-  function assignValue(val, key) {
-    if (typeof result[key] === 'object' && typeof val === 'object') {
-      result[key] = deepMerge(result[key], val);
-    } else if (typeof val === 'object') {
-      result[key] = deepMerge({}, val);
+    } else if (isPlainObject(val)) {
+      result[key] = merge({}, val);
+    } else if (isArray(val)) {
+      result[key] = val.slice();
     } else {
       result[key] = val;
     }
@@ -1872,6 +1905,19 @@ function extend(a, b, thisArg) {
   return a;
 }
 
+/**
+ * Remove byte order marker. This catches EF BB BF (the UTF-8 BOM)
+ *
+ * @param {string} content with BOM
+ * @return {string} content value without BOM
+ */
+function stripBOM(content) {
+  if (content.charCodeAt(0) === 0xFEFF) {
+    content = content.slice(1);
+  }
+  return content;
+}
+
 module.exports = {
   isArray: isArray,
   isArrayBuffer: isArrayBuffer,
@@ -1881,6 +1927,7 @@ module.exports = {
   isString: isString,
   isNumber: isNumber,
   isObject: isObject,
+  isPlainObject: isPlainObject,
   isUndefined: isUndefined,
   isDate: isDate,
   isFile: isFile,
@@ -1891,9 +1938,9 @@ module.exports = {
   isStandardBrowserEnv: isStandardBrowserEnv,
   forEach: forEach,
   merge: merge,
-  deepMerge: deepMerge,
   extend: extend,
-  trim: trim
+  trim: trim,
+  stripBOM: stripBOM
 };
 
 
@@ -6357,6 +6404,2137 @@ __webpack_require__.r(__webpack_exports__);
 })));
 //# sourceMappingURL=bootstrap.js.map
 
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/CanvasGantt.js":
+/*!**********************************************!*\
+  !*** ./node_modules/gantt/es/CanvasGantt.js ***!
+  \**********************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return CanvasGantt; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _gantt__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./gantt */ "./node_modules/gantt/es/gantt/index.js");
+/* harmony import */ var _render_canvas__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/canvas */ "./node_modules/gantt/es/render/canvas.js");
+/* harmony import */ var _context__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./context */ "./node_modules/gantt/es/context.js");
+/* harmony import */ var _gantt_styles__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./gantt/styles */ "./node_modules/gantt/es/gantt/styles.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./utils */ "./node_modules/gantt/es/utils.js");
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+
+
+
+
+
+
+
+var CanvasGantt = /*#__PURE__*/function () {
+  function CanvasGantt(element, data) {
+    var _this = this;
+
+    var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+
+    _classCallCheck(this, CanvasGantt);
+
+    this.ctx = Object(_context__WEBPACK_IMPORTED_MODULE_3__["default"])(element);
+    this.format(data);
+    this.options = options;
+    this.render();
+
+    this.ctx.onClick = function (e) {
+      return _this.render(e);
+    };
+  }
+
+  _createClass(CanvasGantt, [{
+    key: "format",
+    value: function format(data) {
+      this.data = data;
+      var start = null;
+      var end = null;
+      data.forEach(function (v) {
+        start = Object(_utils__WEBPACK_IMPORTED_MODULE_5__["minDate"])(start, v.start);
+        end = Object(_utils__WEBPACK_IMPORTED_MODULE_5__["maxDate"])(end, v.end);
+      });
+      this.start = start || new Date();
+      this.end = end || new Date();
+    }
+  }, {
+    key: "setData",
+    value: function setData(data) {
+      this.format(data);
+      this.render();
+    }
+  }, {
+    key: "setOptions",
+    value: function setOptions(options) {
+      this.options = _objectSpread(_objectSpread({}, this.options), options);
+      this.render();
+    }
+  }, {
+    key: "render",
+    value: function render(e) {
+      var data = this.data,
+          start = this.start,
+          end = this.end,
+          options = this.options;
+
+      if (options.maxTextWidth === undefined) {
+        var font = Object(_gantt_styles__WEBPACK_IMPORTED_MODULE_4__["getFont"])(options.styleOptions || {});
+
+        var w = function w(v) {
+          return Object(_utils__WEBPACK_IMPORTED_MODULE_5__["textWidth"])(v.text, font, 20);
+        };
+
+        options.maxTextWidth = Object(_utils__WEBPACK_IMPORTED_MODULE_5__["max"])(data.map(w), 0);
+      }
+
+      var props = _objectSpread(_objectSpread({}, options), {}, {
+        start: start,
+        end: end
+      });
+
+      Object(_render_canvas__WEBPACK_IMPORTED_MODULE_2__["default"])(Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_gantt__WEBPACK_IMPORTED_MODULE_1__["default"], _extends({
+        data: data
+      }, props)), this.ctx, e);
+    }
+  }]);
+
+  return CanvasGantt;
+}();
+
+
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/SVGGantt.js":
+/*!*******************************************!*\
+  !*** ./node_modules/gantt/es/SVGGantt.js ***!
+  \*******************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return SVGGantt; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _gantt__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./gantt */ "./node_modules/gantt/es/gantt/index.js");
+/* harmony import */ var _render_svg__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/svg */ "./node_modules/gantt/es/render/svg.js");
+/* harmony import */ var _gantt_styles__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./gantt/styles */ "./node_modules/gantt/es/gantt/styles.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./utils */ "./node_modules/gantt/es/utils.js");
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+
+
+
+
+
+
+var SVGGantt = /*#__PURE__*/function () {
+  function SVGGantt(element, data) {
+    var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
+
+    _classCallCheck(this, SVGGantt);
+
+    this.dom = typeof element === 'string' ? document.querySelector(element) : element;
+    this.format(data);
+    this.options = options;
+    this.render();
+  }
+
+  _createClass(SVGGantt, [{
+    key: "format",
+    value: function format(data) {
+      this.data = data;
+      var start = null;
+      var end = null;
+      data.forEach(function (v) {
+        start = Object(_utils__WEBPACK_IMPORTED_MODULE_4__["minDate"])(start, v.start);
+        end = Object(_utils__WEBPACK_IMPORTED_MODULE_4__["maxDate"])(end, v.end);
+      });
+      this.start = start || new Date();
+      this.end = end || new Date();
+    }
+  }, {
+    key: "setData",
+    value: function setData(data) {
+      this.format(data);
+      this.render();
+    }
+  }, {
+    key: "setOptions",
+    value: function setOptions(options) {
+      this.options = _objectSpread(_objectSpread({}, this.options), options);
+      this.render();
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      var data = this.data,
+          start = this.start,
+          end = this.end,
+          options = this.options;
+
+      if (this.tree) {
+        this.dom.removeChild(this.tree);
+      }
+
+      if (options.maxTextWidth === undefined) {
+        var font = Object(_gantt_styles__WEBPACK_IMPORTED_MODULE_3__["getFont"])(options.styleOptions || {});
+
+        var w = function w(v) {
+          return Object(_utils__WEBPACK_IMPORTED_MODULE_4__["textWidth"])(v.text, font, 20);
+        };
+
+        options.maxTextWidth = Object(_utils__WEBPACK_IMPORTED_MODULE_4__["max"])(data.map(w), 0);
+      }
+
+      var props = _objectSpread(_objectSpread({}, options), {}, {
+        start: start,
+        end: end
+      });
+
+      this.tree = Object(_render_svg__WEBPACK_IMPORTED_MODULE_2__["default"])(Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_gantt__WEBPACK_IMPORTED_MODULE_1__["default"], _extends({
+        data: data
+      }, props)));
+      this.dom.appendChild(this.tree);
+    }
+  }]);
+
+  return SVGGantt;
+}();
+
+
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/StrGantt.js":
+/*!*******************************************!*\
+  !*** ./node_modules/gantt/es/StrGantt.js ***!
+  \*******************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return StrGantt; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _gantt__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./gantt */ "./node_modules/gantt/es/gantt/index.js");
+/* harmony import */ var _render_string__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./render/string */ "./node_modules/gantt/es/render/string.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./utils */ "./node_modules/gantt/es/utils.js");
+function _extends() { _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; }; return _extends.apply(this, arguments); }
+
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+
+function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); return Constructor; }
+
+
+
+
+
+
+var StrGantt = /*#__PURE__*/function () {
+  function StrGantt(data) {
+    var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
+
+    _classCallCheck(this, StrGantt);
+
+    this.format(data);
+    this.options = options;
+  }
+
+  _createClass(StrGantt, [{
+    key: "format",
+    value: function format(data) {
+      this.data = data;
+      var start = null;
+      var end = null;
+      data.forEach(function (v) {
+        start = Object(_utils__WEBPACK_IMPORTED_MODULE_3__["minDate"])(start, v.start);
+        end = Object(_utils__WEBPACK_IMPORTED_MODULE_3__["maxDate"])(end, v.end);
+      });
+      this.start = start || new Date();
+      this.end = end || new Date();
+    }
+  }, {
+    key: "setData",
+    value: function setData(data) {
+      this.format(data);
+    }
+  }, {
+    key: "setOptions",
+    value: function setOptions(options) {
+      this.options = _objectSpread(_objectSpread({}, this.options), options);
+    }
+  }, {
+    key: "render",
+    value: function render() {
+      var data = this.data,
+          start = this.start,
+          end = this.end,
+          options = this.options;
+
+      var props = _objectSpread(_objectSpread({}, options), {}, {
+        start: start,
+        end: end
+      });
+
+      return Object(_render_string__WEBPACK_IMPORTED_MODULE_2__["default"])(Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_gantt__WEBPACK_IMPORTED_MODULE_1__["default"], _extends({
+        data: data
+      }, props)));
+    }
+  }]);
+
+  return StrGantt;
+}();
+
+
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/context.js":
+/*!******************************************!*\
+  !*** ./node_modules/gantt/es/context.js ***!
+  \******************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return createContext; });
+function createContext(dom) {
+  var canvas = typeof dom === 'string' ? document.querySelector(dom) : dom;
+  var ctx = canvas.getContext('2d');
+  var backingStore = ctx.webkitBackingStorePixelRatio || ctx.mozBackingStorePixelRatio || ctx.msBackingStorePixelRatio || ctx.oBackingStorePixelRatio || ctx.backingStorePixelRatio || 1;
+  var ratio = (window.devicePixelRatio || 1) / backingStore;
+  ['width', 'height'].forEach(function (key) {
+    Object.defineProperty(ctx, key, {
+      get: function get() {
+        return canvas[key] / ratio;
+      },
+      set: function set(v) {
+        canvas[key] = v * ratio;
+        canvas.style[key] = "".concat(v, "px");
+        ctx.scale(ratio, ratio);
+      },
+      enumerable: true,
+      configurable: true
+    });
+  });
+  canvas.addEventListener('click', function (e) {
+    if (!ctx.onClick) return;
+    var rect = canvas.getBoundingClientRect();
+    ctx.onClick({
+      x: (e.clientX - rect.left) * ratio,
+      y: (e.clientY - rect.top) * ratio
+    });
+  });
+  return ctx;
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/Bar.js":
+/*!********************************************!*\
+  !*** ./node_modules/gantt/es/gantt/Bar.js ***!
+  \********************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Bar; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils */ "./node_modules/gantt/es/utils.js");
+
+
+function Bar(_ref) {
+  var styles = _ref.styles,
+      data = _ref.data,
+      unit = _ref.unit,
+      height = _ref.height,
+      offsetY = _ref.offsetY,
+      minTime = _ref.minTime,
+      showDelay = _ref.showDelay,
+      rowHeight = _ref.rowHeight,
+      barHeight = _ref.barHeight,
+      maxTextWidth = _ref.maxTextWidth,
+      current = _ref.current,
+      onClick = _ref.onClick;
+  var x0 = maxTextWidth;
+  var y0 = (rowHeight - barHeight) / 2 + offsetY;
+  var cur = x0 + (current - minTime) / unit;
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, current > minTime ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+    x1: cur,
+    x2: cur,
+    y1: offsetY,
+    y2: height,
+    style: styles.cline
+  }) : null, data.map(function (v, i) {
+    if (!v.end || !v.start) {
+      return null;
+    }
+
+    var handler = function handler() {
+      return onClick(v);
+    };
+
+    var x = x0 + (v.start - minTime) / unit;
+    var y = y0 + i * rowHeight;
+    var cy = y + barHeight / 2;
+
+    if (v.type === 'milestone') {
+      var size = barHeight / 2;
+      var points = [[x, cy - size], [x + size, cy], [x, cy + size], [x - size, cy]].map(function (p) {
+        return "".concat(p[0], ",").concat(p[1]);
+      }).join(' ');
+      return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", {
+        key: i,
+        "class": "gantt-bar",
+        style: {
+          cursor: 'pointer'
+        },
+        onClick: handler
+      }, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polygon", {
+        points: points,
+        style: styles.milestone,
+        onClick: handler
+      }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("circle", {
+        "class": "gantt-ctrl-start",
+        "data-id": v.id,
+        cx: x,
+        cy: cy,
+        r: 6,
+        style: styles.ctrl
+      }));
+    }
+
+    var w1 = (v.end - v.start) / unit;
+    var w2 = w1 * v.percent;
+    var bar = v.type === 'group' ? {
+      back: styles.groupBack,
+      front: styles.groupFront
+    } : {
+      back: styles.taskBack,
+      front: styles.taskFront
+    };
+
+    if (showDelay) {
+      if (x + w2 < cur && v.percent < 0.999999) {
+        bar.front = styles.warning;
+      }
+
+      if (x + w1 < cur && v.percent < 0.999999) {
+        bar.front = styles.danger;
+      }
+    }
+
+    return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", {
+      key: i,
+      "class": "gantt-bar",
+      style: {
+        cursor: 'pointer'
+      },
+      onClick: handler
+    }, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      x: x - 4,
+      y: cy,
+      style: styles.text1
+    }, Object(_utils__WEBPACK_IMPORTED_MODULE_1__["formatDay"])(v.start)), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      x: x + w1 + 4,
+      y: cy,
+      style: styles.text2
+    }, Object(_utils__WEBPACK_IMPORTED_MODULE_1__["formatDay"])(v.end)), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("rect", {
+      x: x,
+      y: y,
+      width: w1,
+      height: barHeight,
+      rx: 1.8,
+      ry: 1.8,
+      style: bar.back,
+      onClick: handler
+    }), w2 > 0.000001 ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("rect", {
+      x: x,
+      y: y,
+      width: w2,
+      height: barHeight,
+      rx: 1.8,
+      ry: 1.8,
+      style: bar.front
+    }) : null, v.type === 'group' ? null : Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("circle", {
+      "class": "gantt-ctrl-start",
+      "data-id": v.id,
+      cx: x - 12,
+      cy: cy,
+      r: 6,
+      style: styles.ctrl
+    }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("circle", {
+      "class": "gantt-ctrl-finish",
+      "data-id": v.id,
+      cx: x + w1 + 12,
+      cy: cy,
+      r: 6,
+      style: styles.ctrl
+    })));
+  }));
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/DayHeader.js":
+/*!**************************************************!*\
+  !*** ./node_modules/gantt/es/gantt/DayHeader.js ***!
+  \**************************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return DayHeader; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils */ "./node_modules/gantt/es/utils.js");
+/* harmony import */ var _YearMonth__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./YearMonth */ "./node_modules/gantt/es/gantt/YearMonth.js");
+
+
+
+function DayHeader(_ref) {
+  var styles = _ref.styles,
+      unit = _ref.unit,
+      minTime = _ref.minTime,
+      maxTime = _ref.maxTime,
+      height = _ref.height,
+      offsetY = _ref.offsetY,
+      maxTextWidth = _ref.maxTextWidth;
+  var dates = Object(_utils__WEBPACK_IMPORTED_MODULE_1__["getDates"])(minTime, maxTime);
+  var ticks = [];
+  var x0 = maxTextWidth;
+  var y0 = offsetY / 2;
+  var RH = height - y0;
+  var len = dates.length - 1;
+
+  for (var i = 0; i < len; i++) {
+    var cur = new Date(dates[i]);
+    var day = cur.getDay();
+    var x = x0 + (dates[i] - minTime) / unit;
+    var t = (dates[i + 1] - dates[i]) / unit;
+    ticks.push(Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, day === 0 || day === 6 ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("rect", {
+      x: x,
+      y: y0,
+      width: t,
+      height: RH,
+      style: styles.week
+    }) : null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+      x1: x,
+      x2: x,
+      y1: y0,
+      y2: offsetY,
+      style: styles.line
+    }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      x: x + t / 2,
+      y: offsetY * 0.75,
+      style: styles.text3
+    }, cur.getDate()), i === len - 1 ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+      x1: x + t,
+      x2: x + t,
+      y1: y0,
+      y2: offsetY,
+      style: styles.line
+    }) : null));
+  }
+
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_YearMonth__WEBPACK_IMPORTED_MODULE_2__["default"], {
+    styles: styles,
+    unit: unit,
+    dates: dates,
+    offsetY: offsetY,
+    minTime: minTime,
+    maxTime: maxTime,
+    maxTextWidth: maxTextWidth
+  }), ticks);
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/Grid.js":
+/*!*********************************************!*\
+  !*** ./node_modules/gantt/es/gantt/Grid.js ***!
+  \*********************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Grid; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+
+function Grid(_ref) {
+  var styles = _ref.styles,
+      data = _ref.data,
+      width = _ref.width,
+      height = _ref.height,
+      offsetY = _ref.offsetY,
+      rowHeight = _ref.rowHeight,
+      maxTextWidth = _ref.maxTextWidth;
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, data.map(function (v, i) {
+    var y = (i + 1) * rowHeight + offsetY;
+    return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+      key: i,
+      x1: 0,
+      x2: width,
+      y1: y,
+      y2: y,
+      style: styles.line
+    });
+  }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+    x1: maxTextWidth,
+    x2: maxTextWidth,
+    y1: 0,
+    y2: height,
+    style: styles.bline
+  }));
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/Labels.js":
+/*!***********************************************!*\
+  !*** ./node_modules/gantt/es/gantt/Labels.js ***!
+  \***********************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Labels; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+
+function Labels(_ref) {
+  var styles = _ref.styles,
+      data = _ref.data,
+      _onClick = _ref.onClick,
+      rowHeight = _ref.rowHeight,
+      offsetY = _ref.offsetY;
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, data.map(function (v, i) {
+    return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      key: i,
+      x: 10,
+      y: (i + 0.5) * rowHeight + offsetY,
+      "class": "gantt-label",
+      style: styles.label,
+      onClick: function onClick() {
+        return _onClick(v);
+      }
+    }, v.text);
+  }));
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/Layout.js":
+/*!***********************************************!*\
+  !*** ./node_modules/gantt/es/gantt/Layout.js ***!
+  \***********************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Layout; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+
+function Layout(_ref) {
+  var styles = _ref.styles,
+      width = _ref.width,
+      height = _ref.height,
+      offsetY = _ref.offsetY,
+      thickWidth = _ref.thickWidth,
+      maxTextWidth = _ref.maxTextWidth;
+  var x0 = thickWidth / 2;
+  var W = width - thickWidth;
+  var H = height - thickWidth;
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("rect", {
+    x: x0,
+    y: x0,
+    width: W,
+    height: H,
+    style: styles.box
+  }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+    x1: 0,
+    x2: width,
+    y1: offsetY - x0,
+    y2: offsetY - x0,
+    style: styles.bline
+  }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+    x1: maxTextWidth,
+    x2: width,
+    y1: offsetY / 2,
+    y2: offsetY / 2,
+    style: styles.line
+  }));
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/LinkLine.js":
+/*!*************************************************!*\
+  !*** ./node_modules/gantt/es/gantt/LinkLine.js ***!
+  \*************************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return LinkLine; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils */ "./node_modules/gantt/es/utils.js");
+
+
+function LinkLine(_ref) {
+  var styles = _ref.styles,
+      data = _ref.data,
+      unit = _ref.unit,
+      offsetY = _ref.offsetY,
+      minTime = _ref.minTime,
+      rowHeight = _ref.rowHeight,
+      barHeight = _ref.barHeight,
+      maxTextWidth = _ref.maxTextWidth;
+  var x0 = maxTextWidth;
+  var y0 = rowHeight / 2 + offsetY;
+  var map = {};
+  data.forEach(function (v, i) {
+    map[v.id] = i;
+  });
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, data.map(function (s, i) {
+    if (!s.end || !s.start || !s.links) {
+      return null;
+    }
+
+    return s.links.map(function (l) {
+      var j = map[l.target];
+      var e = data[j];
+      if (!e || !e.start || !e.end) return null;
+      var gap = 12;
+      var arrow = 6;
+      var mgap = e.type === 'milestone' ? barHeight / 2 : 0;
+      var y1 = y0 + i * rowHeight;
+      var y2 = y0 + j * rowHeight;
+      var vgap = barHeight / 2 + 4;
+
+      if (y1 > y2) {
+        vgap = -vgap;
+      }
+
+      if (l.type === 'FS') {
+        var x1 = x0 + (s.end - minTime) / unit;
+        var x2 = x0 + (e.start - minTime) / unit - mgap;
+        var p1 = [[x1, y1], [x1 + gap, y1]];
+
+        if (x2 - x1 >= 2 * gap) {
+          p1.push([x1 + gap, y2]);
+        } else {
+          p1.push([x1 + gap, y2 - vgap]);
+          p1.push([x2 - gap, y2 - vgap]);
+          p1.push([x2 - gap, y2]);
+        }
+
+        p1.push([x2 - arrow, y2]);
+        var p2 = [[x2 - arrow, y2 - arrow], [x2, y2], [x2 - arrow, y2 + arrow]];
+        return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polyline", {
+          points: Object(_utils__WEBPACK_IMPORTED_MODULE_1__["p2s"])(p1),
+          style: styles.link
+        }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polygon", {
+          points: Object(_utils__WEBPACK_IMPORTED_MODULE_1__["p2s"])(p2),
+          style: styles.linkArrow
+        }));
+      }
+
+      if (l.type === 'FF') {
+        var _x = x0 + (s.end - minTime) / unit;
+
+        var _x2 = x0 + (e.end - minTime) / unit + mgap;
+
+        var _p = [[_x, y1], [_x + gap, y1]];
+
+        if (_x2 <= _x) {
+          _p.push([_x + gap, y2]);
+        } else {
+          _p.push([_x + gap, y2 - vgap]);
+
+          _p.push([_x2 + gap, y2 - vgap]);
+
+          _p.push([_x2 + gap, y2]);
+        }
+
+        _p.push([_x2 + arrow, y2]);
+
+        var _p2 = [[_x2 + arrow, y2 - arrow], [_x2, y2], [_x2 + arrow, y2 + arrow]];
+        return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polyline", {
+          points: Object(_utils__WEBPACK_IMPORTED_MODULE_1__["p2s"])(_p),
+          style: styles.link
+        }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polygon", {
+          points: Object(_utils__WEBPACK_IMPORTED_MODULE_1__["p2s"])(_p2),
+          style: styles.linkArrow
+        }));
+      }
+
+      if (l.type === 'SS') {
+        var _x3 = x0 + (s.start - minTime) / unit;
+
+        var _x4 = x0 + (e.start - minTime) / unit - mgap;
+
+        var _p3 = [[_x3, y1], [_x3 - gap, y1]];
+
+        if (_x3 <= _x4) {
+          _p3.push([_x3 - gap, y2]);
+        } else {
+          _p3.push([_x3 - gap, y2 - vgap]);
+
+          _p3.push([_x4 - gap, y2 - vgap]);
+
+          _p3.push([_x4 - gap, y2]);
+        }
+
+        _p3.push([_x4 - arrow, y2]);
+
+        var _p4 = [[_x4 - arrow, y2 - arrow], [_x4, y2], [_x4 - arrow, y2 + arrow]];
+        return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polyline", {
+          points: Object(_utils__WEBPACK_IMPORTED_MODULE_1__["p2s"])(_p3),
+          style: styles.link
+        }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polygon", {
+          points: Object(_utils__WEBPACK_IMPORTED_MODULE_1__["p2s"])(_p4),
+          style: styles.linkArrow
+        }));
+      }
+
+      if (l.type === 'SF') {
+        var _x5 = x0 + (s.start - minTime) / unit;
+
+        var _x6 = x0 + (e.end - minTime) / unit + mgap;
+
+        var _p5 = [[_x5, y1], [_x5 - gap, y1]];
+
+        if (_x5 - _x6 >= 2 * gap) {
+          _p5.push([_x5 - gap, y2]);
+        } else {
+          _p5.push([_x5 - gap, y2 - vgap]);
+
+          _p5.push([_x6 + gap, y2 - vgap]);
+
+          _p5.push([_x6 + gap, y2]);
+        }
+
+        _p5.push([_x6 + arrow, y2]);
+
+        var _p6 = [[_x6 + arrow, y2 - arrow], [_x6, y2], [_x6 + arrow, y2 + arrow]];
+        return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polyline", {
+          points: Object(_utils__WEBPACK_IMPORTED_MODULE_1__["p2s"])(_p5),
+          style: styles.link
+        }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("polygon", {
+          points: Object(_utils__WEBPACK_IMPORTED_MODULE_1__["p2s"])(_p6),
+          style: styles.linkArrow
+        }));
+      }
+
+      return null;
+    });
+  }));
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/MonthHeader.js":
+/*!****************************************************!*\
+  !*** ./node_modules/gantt/es/gantt/MonthHeader.js ***!
+  \****************************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return MonthHeader; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils */ "./node_modules/gantt/es/utils.js");
+/* harmony import */ var _Year__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./Year */ "./node_modules/gantt/es/gantt/Year.js");
+
+
+
+function MonthHeader(_ref) {
+  var styles = _ref.styles,
+      unit = _ref.unit,
+      minTime = _ref.minTime,
+      maxTime = _ref.maxTime,
+      offsetY = _ref.offsetY,
+      maxTextWidth = _ref.maxTextWidth;
+  var MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var dates = Object(_utils__WEBPACK_IMPORTED_MODULE_1__["getDates"])(minTime, maxTime);
+  var months = dates.filter(function (v) {
+    return new Date(v).getDate() === 1;
+  });
+  months.unshift(minTime);
+  months.push(maxTime);
+  var ticks = [];
+  var x0 = maxTextWidth;
+  var y0 = offsetY / 2;
+  var len = months.length - 1;
+
+  for (var i = 0; i < len; i++) {
+    var cur = new Date(months[i]);
+    var month = cur.getMonth();
+    var x = x0 + (months[i] - minTime) / unit;
+    var t = (months[i + 1] - months[i]) / unit;
+    ticks.push(Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+      x1: x,
+      x2: x,
+      y1: y0,
+      y2: offsetY,
+      style: styles.line
+    }), t > 30 ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      x: x + t / 2,
+      y: offsetY * 0.75,
+      style: styles.text3
+    }, MONTH[month]) : null));
+  }
+
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_Year__WEBPACK_IMPORTED_MODULE_2__["default"], {
+    styles: styles,
+    unit: unit,
+    months: months,
+    offsetY: offsetY,
+    minTime: minTime,
+    maxTime: maxTime,
+    maxTextWidth: maxTextWidth
+  }), ticks);
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/WeekHeader.js":
+/*!***************************************************!*\
+  !*** ./node_modules/gantt/es/gantt/WeekHeader.js ***!
+  \***************************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return WeekHeader; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils */ "./node_modules/gantt/es/utils.js");
+/* harmony import */ var _YearMonth__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./YearMonth */ "./node_modules/gantt/es/gantt/YearMonth.js");
+
+
+
+function WeekHeader(_ref) {
+  var styles = _ref.styles,
+      unit = _ref.unit,
+      minTime = _ref.minTime,
+      maxTime = _ref.maxTime,
+      height = _ref.height,
+      offsetY = _ref.offsetY,
+      maxTextWidth = _ref.maxTextWidth;
+  var dates = Object(_utils__WEBPACK_IMPORTED_MODULE_1__["getDates"])(minTime, maxTime);
+  var weeks = dates.filter(function (v) {
+    return new Date(v).getDay() === 0;
+  });
+  weeks.push(maxTime);
+  var ticks = [];
+  var x0 = maxTextWidth;
+  var y0 = offsetY;
+  var RH = height - y0;
+  var d = _utils__WEBPACK_IMPORTED_MODULE_1__["DAY"] / unit;
+  var len = weeks.length - 1;
+
+  for (var i = 0; i < len; i++) {
+    var cur = new Date(weeks[i]);
+    var x = x0 + (weeks[i] - minTime) / unit;
+    var curDay = cur.getDate();
+    var prevDay = Object(_utils__WEBPACK_IMPORTED_MODULE_1__["addDays"])(cur, -1).getDate();
+    ticks.push(Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("rect", {
+      x: x - d,
+      y: y0,
+      width: d * 2,
+      height: RH,
+      style: styles.week
+    }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+      x1: x,
+      x2: x,
+      y1: offsetY / 2,
+      y2: offsetY,
+      style: styles.line
+    }), Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      x: x + 3,
+      y: offsetY * 0.75,
+      style: styles.text2
+    }, curDay), x - x0 > 28 ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      x: x - 3,
+      y: offsetY * 0.75,
+      style: styles.text1
+    }, prevDay) : null));
+  }
+
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_YearMonth__WEBPACK_IMPORTED_MODULE_2__["default"], {
+    styles: styles,
+    unit: unit,
+    dates: dates,
+    offsetY: offsetY,
+    minTime: minTime,
+    maxTime: maxTime,
+    maxTextWidth: maxTextWidth
+  }), ticks);
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/Year.js":
+/*!*********************************************!*\
+  !*** ./node_modules/gantt/es/gantt/Year.js ***!
+  \*********************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Year; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+
+function Year(_ref) {
+  var styles = _ref.styles,
+      months = _ref.months,
+      unit = _ref.unit,
+      offsetY = _ref.offsetY,
+      minTime = _ref.minTime,
+      maxTime = _ref.maxTime,
+      maxTextWidth = _ref.maxTextWidth;
+  var years = months.filter(function (v) {
+    return new Date(v).getMonth() === 0;
+  });
+  years.unshift(minTime);
+  years.push(maxTime);
+  var ticks = [];
+  var x0 = maxTextWidth;
+  var y2 = offsetY / 2;
+  var len = years.length - 1;
+
+  for (var i = 0; i < len; i++) {
+    var cur = new Date(years[i]);
+    var x = x0 + (years[i] - minTime) / unit;
+    var t = (years[i + 1] - years[i]) / unit;
+    ticks.push(Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+      x1: x,
+      x2: x,
+      y1: 0,
+      y2: y2,
+      style: styles.line
+    }), t > 35 ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      x: x + t / 2,
+      y: offsetY * 0.25,
+      style: styles.text3
+    }, cur.getFullYear()) : null));
+  }
+
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, ticks);
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/YearMonth.js":
+/*!**************************************************!*\
+  !*** ./node_modules/gantt/es/gantt/YearMonth.js ***!
+  \**************************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return YearMonth; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils */ "./node_modules/gantt/es/utils.js");
+
+
+function YearMonth(_ref) {
+  var styles = _ref.styles,
+      dates = _ref.dates,
+      unit = _ref.unit,
+      offsetY = _ref.offsetY,
+      minTime = _ref.minTime,
+      maxTime = _ref.maxTime,
+      maxTextWidth = _ref.maxTextWidth;
+  var months = dates.filter(function (v) {
+    return new Date(v).getDate() === 1;
+  });
+  months.unshift(minTime);
+  months.push(maxTime);
+  var ticks = [];
+  var x0 = maxTextWidth;
+  var y2 = offsetY / 2;
+  var len = months.length - 1;
+
+  for (var i = 0; i < len; i++) {
+    var cur = new Date(months[i]);
+    var str = Object(_utils__WEBPACK_IMPORTED_MODULE_1__["formatMonth"])(cur);
+    var x = x0 + (months[i] - minTime) / unit;
+    var t = (months[i + 1] - months[i]) / unit;
+    ticks.push(Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("line", {
+      x1: x,
+      x2: x,
+      y1: 0,
+      y2: y2,
+      style: styles.line
+    }), t > 50 ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("text", {
+      x: x + t / 2,
+      y: offsetY * 0.25,
+      style: styles.text3
+    }, str) : null));
+  }
+
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("g", null, ticks);
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/index.js":
+/*!**********************************************!*\
+  !*** ./node_modules/gantt/es/gantt/index.js ***!
+  \**********************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Gantt; });
+/* harmony import */ var _h__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../h */ "./node_modules/gantt/es/h.js");
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ../utils */ "./node_modules/gantt/es/utils.js");
+/* harmony import */ var _Layout__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./Layout */ "./node_modules/gantt/es/gantt/Layout.js");
+/* harmony import */ var _DayHeader__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./DayHeader */ "./node_modules/gantt/es/gantt/DayHeader.js");
+/* harmony import */ var _WeekHeader__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! ./WeekHeader */ "./node_modules/gantt/es/gantt/WeekHeader.js");
+/* harmony import */ var _MonthHeader__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! ./MonthHeader */ "./node_modules/gantt/es/gantt/MonthHeader.js");
+/* harmony import */ var _Grid__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! ./Grid */ "./node_modules/gantt/es/gantt/Grid.js");
+/* harmony import */ var _Labels__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! ./Labels */ "./node_modules/gantt/es/gantt/Labels.js");
+/* harmony import */ var _LinkLine__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! ./LinkLine */ "./node_modules/gantt/es/gantt/LinkLine.js");
+/* harmony import */ var _Bar__WEBPACK_IMPORTED_MODULE_9__ = __webpack_require__(/*! ./Bar */ "./node_modules/gantt/es/gantt/Bar.js");
+/* harmony import */ var _styles__WEBPACK_IMPORTED_MODULE_10__ = __webpack_require__(/*! ./styles */ "./node_modules/gantt/es/gantt/styles.js");
+
+
+
+
+
+
+
+
+
+
+
+var UNIT = {
+  day: _utils__WEBPACK_IMPORTED_MODULE_1__["DAY"] / 28,
+  week: 7 * _utils__WEBPACK_IMPORTED_MODULE_1__["DAY"] / 56,
+  month: 30 * _utils__WEBPACK_IMPORTED_MODULE_1__["DAY"] / 56
+};
+
+function NOOP() {}
+
+function Gantt(_ref) {
+  var _ref$data = _ref.data,
+      data = _ref$data === void 0 ? [] : _ref$data,
+      _ref$onClick = _ref.onClick,
+      onClick = _ref$onClick === void 0 ? NOOP : _ref$onClick,
+      _ref$viewMode = _ref.viewMode,
+      viewMode = _ref$viewMode === void 0 ? 'week' : _ref$viewMode,
+      _ref$maxTextWidth = _ref.maxTextWidth,
+      maxTextWidth = _ref$maxTextWidth === void 0 ? 140 : _ref$maxTextWidth,
+      _ref$offsetY = _ref.offsetY,
+      offsetY = _ref$offsetY === void 0 ? 60 : _ref$offsetY,
+      _ref$rowHeight = _ref.rowHeight,
+      rowHeight = _ref$rowHeight === void 0 ? 40 : _ref$rowHeight,
+      _ref$barHeight = _ref.barHeight,
+      barHeight = _ref$barHeight === void 0 ? 16 : _ref$barHeight,
+      _ref$thickWidth = _ref.thickWidth,
+      thickWidth = _ref$thickWidth === void 0 ? 1.4 : _ref$thickWidth,
+      _ref$styleOptions = _ref.styleOptions,
+      styleOptions = _ref$styleOptions === void 0 ? {} : _ref$styleOptions,
+      _ref$showLinks = _ref.showLinks,
+      showLinks = _ref$showLinks === void 0 ? true : _ref$showLinks,
+      _ref$showDelay = _ref.showDelay,
+      showDelay = _ref$showDelay === void 0 ? true : _ref$showDelay,
+      start = _ref.start,
+      end = _ref.end;
+  var unit = UNIT[viewMode];
+  var minTime = start.getTime() - unit * 48;
+  var maxTime = end.getTime() + unit * 48;
+  var width = (maxTime - minTime) / unit + maxTextWidth;
+  var height = data.length * rowHeight + offsetY;
+  var box = "0 0 ".concat(width, " ").concat(height);
+  var current = Date.now();
+  var styles = Object(_styles__WEBPACK_IMPORTED_MODULE_10__["default"])(styleOptions);
+  return Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])("svg", {
+    width: width,
+    height: height,
+    viewBox: box
+  }, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_Layout__WEBPACK_IMPORTED_MODULE_2__["default"], {
+    styles: styles,
+    width: width,
+    height: height,
+    offsetY: offsetY,
+    thickWidth: thickWidth,
+    maxTextWidth: maxTextWidth
+  }), viewMode === 'day' ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_DayHeader__WEBPACK_IMPORTED_MODULE_3__["default"], {
+    styles: styles,
+    unit: unit,
+    height: height,
+    offsetY: offsetY,
+    minTime: minTime,
+    maxTime: maxTime,
+    maxTextWidth: maxTextWidth
+  }) : null, viewMode === 'week' ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_WeekHeader__WEBPACK_IMPORTED_MODULE_4__["default"], {
+    styles: styles,
+    unit: unit,
+    height: height,
+    offsetY: offsetY,
+    minTime: minTime,
+    maxTime: maxTime,
+    maxTextWidth: maxTextWidth
+  }) : null, viewMode === 'month' ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_MonthHeader__WEBPACK_IMPORTED_MODULE_5__["default"], {
+    styles: styles,
+    unit: unit,
+    offsetY: offsetY,
+    minTime: minTime,
+    maxTime: maxTime,
+    maxTextWidth: maxTextWidth
+  }) : null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_Grid__WEBPACK_IMPORTED_MODULE_6__["default"], {
+    styles: styles,
+    data: data,
+    width: width,
+    height: height,
+    offsetY: offsetY,
+    rowHeight: rowHeight,
+    maxTextWidth: maxTextWidth
+  }), maxTextWidth > 0 ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_Labels__WEBPACK_IMPORTED_MODULE_7__["default"], {
+    styles: styles,
+    data: data,
+    onClick: onClick,
+    offsetY: offsetY,
+    rowHeight: rowHeight
+  }) : null, showLinks ? Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_LinkLine__WEBPACK_IMPORTED_MODULE_8__["default"], {
+    styles: styles,
+    data: data,
+    unit: unit,
+    height: height,
+    current: current,
+    offsetY: offsetY,
+    minTime: minTime,
+    rowHeight: rowHeight,
+    barHeight: barHeight,
+    maxTextWidth: maxTextWidth
+  }) : null, Object(_h__WEBPACK_IMPORTED_MODULE_0__["default"])(_Bar__WEBPACK_IMPORTED_MODULE_9__["default"], {
+    styles: styles,
+    data: data,
+    unit: unit,
+    height: height,
+    current: current,
+    offsetY: offsetY,
+    minTime: minTime,
+    onClick: onClick,
+    showDelay: showDelay,
+    rowHeight: rowHeight,
+    barHeight: barHeight,
+    maxTextWidth: maxTextWidth
+  }));
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/gantt/styles.js":
+/*!***********************************************!*\
+  !*** ./node_modules/gantt/es/gantt/styles.js ***!
+  \***********************************************/
+/*! exports provided: getFont, default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "getFont", function() { return getFont; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return getStyles; });
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+var SIZE = '14px';
+var TYPE = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+function getFont(_ref) {
+  var _ref$fontSize = _ref.fontSize,
+      fontSize = _ref$fontSize === void 0 ? SIZE : _ref$fontSize,
+      _ref$fontFamily = _ref.fontFamily,
+      fontFamily = _ref$fontFamily === void 0 ? TYPE : _ref$fontFamily;
+  return "bold ".concat(fontSize, " ").concat(fontFamily);
+}
+function getStyles(_ref2) {
+  var _ref2$bgColor = _ref2.bgColor,
+      bgColor = _ref2$bgColor === void 0 ? '#fff' : _ref2$bgColor,
+      _ref2$lineColor = _ref2.lineColor,
+      lineColor = _ref2$lineColor === void 0 ? '#eee' : _ref2$lineColor,
+      _ref2$redLineColor = _ref2.redLineColor,
+      redLineColor = _ref2$redLineColor === void 0 ? '#f04134' : _ref2$redLineColor,
+      _ref2$groupBack = _ref2.groupBack,
+      groupBack = _ref2$groupBack === void 0 ? '#3db9d3' : _ref2$groupBack,
+      _ref2$groupFront = _ref2.groupFront,
+      groupFront = _ref2$groupFront === void 0 ? '#299cb4' : _ref2$groupFront,
+      _ref2$taskBack = _ref2.taskBack,
+      taskBack = _ref2$taskBack === void 0 ? '#65c16f' : _ref2$taskBack,
+      _ref2$taskFront = _ref2.taskFront,
+      taskFront = _ref2$taskFront === void 0 ? '#46ad51' : _ref2$taskFront,
+      _ref2$milestone = _ref2.milestone,
+      milestone = _ref2$milestone === void 0 ? '#d33daf' : _ref2$milestone,
+      _ref2$warning = _ref2.warning,
+      warning = _ref2$warning === void 0 ? '#faad14' : _ref2$warning,
+      _ref2$danger = _ref2.danger,
+      danger = _ref2$danger === void 0 ? '#f5222d' : _ref2$danger,
+      _ref2$link = _ref2.link,
+      link = _ref2$link === void 0 ? '#ffa011' : _ref2$link,
+      _ref2$textColor = _ref2.textColor,
+      textColor = _ref2$textColor === void 0 ? '#222' : _ref2$textColor,
+      _ref2$lightTextColor = _ref2.lightTextColor,
+      lightTextColor = _ref2$lightTextColor === void 0 ? '#999' : _ref2$lightTextColor,
+      _ref2$lineWidth = _ref2.lineWidth,
+      lineWidth = _ref2$lineWidth === void 0 ? '1px' : _ref2$lineWidth,
+      _ref2$thickLineWidth = _ref2.thickLineWidth,
+      thickLineWidth = _ref2$thickLineWidth === void 0 ? '1.4px' : _ref2$thickLineWidth,
+      _ref2$fontSize = _ref2.fontSize,
+      fontSize = _ref2$fontSize === void 0 ? SIZE : _ref2$fontSize,
+      _ref2$smallFontSize = _ref2.smallFontSize,
+      smallFontSize = _ref2$smallFontSize === void 0 ? '12px' : _ref2$smallFontSize,
+      _ref2$fontFamily = _ref2.fontFamily,
+      fontFamily = _ref2$fontFamily === void 0 ? TYPE : _ref2$fontFamily,
+      _ref2$whiteSpace = _ref2.whiteSpace,
+      whiteSpace = _ref2$whiteSpace === void 0 ? 'pre' : _ref2$whiteSpace;
+  var line = {
+    stroke: lineColor,
+    'stroke-width': lineWidth
+  };
+  var redLine = {
+    stroke: redLineColor,
+    'stroke-width': lineWidth
+  };
+  var thickLine = {
+    stroke: lineColor,
+    'stroke-width': thickLineWidth
+  };
+  var text = {
+    fill: textColor,
+    'dominant-baseline': 'central',
+    'font-size': fontSize,
+    'font-family': fontFamily,
+    'white-space': whiteSpace
+  };
+  var smallText = {
+    fill: lightTextColor,
+    'font-size': smallFontSize
+  };
+  return {
+    week: {
+      fill: 'rgba(252, 248, 227, .6)'
+    },
+    box: _objectSpread(_objectSpread({}, thickLine), {}, {
+      fill: bgColor
+    }),
+    line: line,
+    cline: redLine,
+    bline: thickLine,
+    label: text,
+    groupLabel: _objectSpread(_objectSpread({}, text), {}, {
+      'font-weight': '600'
+    }),
+    text1: _objectSpread(_objectSpread(_objectSpread({}, text), smallText), {}, {
+      'text-anchor': 'end'
+    }),
+    text2: _objectSpread(_objectSpread({}, text), smallText),
+    text3: _objectSpread(_objectSpread(_objectSpread({}, text), smallText), {}, {
+      'text-anchor': 'middle'
+    }),
+    link: {
+      stroke: link,
+      'stroke-width': '1.5px',
+      fill: 'none'
+    },
+    linkArrow: {
+      fill: link
+    },
+    milestone: {
+      fill: milestone
+    },
+    groupBack: {
+      fill: groupBack
+    },
+    groupFront: {
+      fill: groupFront
+    },
+    taskBack: {
+      fill: taskBack
+    },
+    taskFront: {
+      fill: taskFront
+    },
+    warning: {
+      fill: warning
+    },
+    danger: {
+      fill: danger
+    },
+    ctrl: {
+      display: 'none',
+      fill: '#f0f0f0',
+      stroke: '#929292',
+      'stroke-width': '1px'
+    }
+  };
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/h.js":
+/*!************************************!*\
+  !*** ./node_modules/gantt/es/h.js ***!
+  \************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return h; });
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+function addChild(c, childNodes) {
+  if (c === null || c === undefined) return;
+
+  if (typeof c === 'string' || typeof c === 'number') {
+    childNodes.push(c.toString());
+  } else if (Array.isArray(c)) {
+    for (var i = 0; i < c.length; i++) {
+      addChild(c[i], childNodes);
+    }
+  } else {
+    childNodes.push(c);
+  }
+}
+
+function h(tag, props) {
+  var childNodes = [];
+
+  for (var _len = arguments.length, children = new Array(_len > 2 ? _len - 2 : 0), _key = 2; _key < _len; _key++) {
+    children[_key - 2] = arguments[_key];
+  }
+
+  addChild(children, childNodes);
+
+  if (typeof tag === 'function') {
+    return tag(_objectSpread(_objectSpread({}, props), {}, {
+      children: childNodes
+    }));
+  }
+
+  return {
+    tag: tag,
+    props: props,
+    children: childNodes
+  };
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/index.js":
+/*!****************************************!*\
+  !*** ./node_modules/gantt/es/index.js ***!
+  \****************************************/
+/*! exports provided: default, SVGGantt, CanvasGantt, StrGantt, utils */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony import */ var _SVGGantt__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ./SVGGantt */ "./node_modules/gantt/es/SVGGantt.js");
+/* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "SVGGantt", function() { return _SVGGantt__WEBPACK_IMPORTED_MODULE_0__["default"]; });
+
+/* harmony import */ var _CanvasGantt__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! ./CanvasGantt */ "./node_modules/gantt/es/CanvasGantt.js");
+/* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "CanvasGantt", function() { return _CanvasGantt__WEBPACK_IMPORTED_MODULE_1__["default"]; });
+
+/* harmony import */ var _StrGantt__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! ./StrGantt */ "./node_modules/gantt/es/StrGantt.js");
+/* harmony reexport (safe) */ __webpack_require__.d(__webpack_exports__, "StrGantt", function() { return _StrGantt__WEBPACK_IMPORTED_MODULE_2__["default"]; });
+
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! ./utils */ "./node_modules/gantt/es/utils.js");
+/* harmony reexport (module object) */ __webpack_require__.d(__webpack_exports__, "utils", function() { return _utils__WEBPACK_IMPORTED_MODULE_3__; });
+
+
+
+
+/* harmony default export */ __webpack_exports__["default"] = (_CanvasGantt__WEBPACK_IMPORTED_MODULE_1__["default"]);
+
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/render/canvas.js":
+/*!************************************************!*\
+  !*** ./node_modules/gantt/es/render/canvas.js ***!
+  \************************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return render; });
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! ../utils */ "./node_modules/gantt/es/utils.js");
+
+function render(vnode, ctx, e) {
+  var tag = vnode.tag,
+      props = vnode.props,
+      children = vnode.children;
+
+  if (tag === 'svg') {
+    var width = props.width,
+        height = props.height;
+    ctx.width = width;
+    ctx.height = height;
+  }
+
+  if (tag === 'line') {
+    var x1 = props.x1,
+        x2 = props.x2,
+        y1 = props.y1,
+        y2 = props.y2,
+        _props$style = props.style,
+        style = _props$style === void 0 ? {} : _props$style;
+
+    if (style.stroke) {
+      ctx.strokeStyle = style.stroke;
+      ctx.lineWidth = parseFloat(style['stroke-width'] || 1);
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+
+  if (tag === 'polyline' || tag === 'polygon') {
+    var points = props.points,
+        _props$style2 = props.style,
+        _style = _props$style2 === void 0 ? {} : _props$style2;
+
+    var p = Object(_utils__WEBPACK_IMPORTED_MODULE_0__["s2p"])(points);
+
+    if (_style.stroke) {
+      ctx.strokeStyle = _style.stroke;
+      ctx.lineWidth = parseFloat(_style['stroke-width'] || 1);
+    }
+
+    if (_style.fill) {
+      ctx.fillStyle = _style.fill;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(p[0][0], p[0][1]);
+
+    for (var i = 1; i < p.length; i++) {
+      ctx.lineTo(p[i][0], p[i][1]);
+    }
+
+    if (tag === 'polyline') {
+      ctx.stroke();
+    } else {
+      ctx.fill();
+    }
+  }
+
+  if (tag === 'rect') {
+    var x = props.x,
+        y = props.y,
+        _width = props.width,
+        _height = props.height,
+        _props$rx = props.rx,
+        rx = _props$rx === void 0 ? 0 : _props$rx,
+        _props$ry = props.ry,
+        ry = _props$ry === void 0 ? 0 : _props$ry,
+        onClick = props.onClick,
+        _props$style3 = props.style,
+        _style2 = _props$style3 === void 0 ? {} : _props$style3; // From https://github.com/canvg/canvg
+
+
+    ctx.beginPath();
+    ctx.moveTo(x + rx, y);
+    ctx.lineTo(x + _width - rx, y);
+    ctx.quadraticCurveTo(x + _width, y, x + _width, y + ry);
+    ctx.lineTo(x + _width, y + _height - ry);
+    ctx.quadraticCurveTo(x + _width, y + _height, x + _width - rx, y + _height);
+    ctx.lineTo(x + rx, y + _height);
+    ctx.quadraticCurveTo(x, y + _height, x, y + _height - ry);
+    ctx.lineTo(x, y + ry);
+    ctx.quadraticCurveTo(x, y, x + rx, y);
+
+    if (e && onClick && ctx.isPointInPath(e.x, e.y)) {
+      onClick();
+    }
+
+    ctx.closePath();
+
+    if (_style2.fill) {
+      ctx.fillStyle = _style2.fill;
+    }
+
+    ctx.fill();
+
+    if (_style2.stroke) {
+      ctx.strokeStyle = _style2.stroke;
+      ctx.lineWidth = parseFloat(_style2['stroke-width'] || 1);
+      ctx.stroke();
+    }
+  }
+
+  if (tag === 'text') {
+    var _x = props.x,
+        _y = props.y,
+        _style3 = props.style;
+
+    if (_style3) {
+      ctx.fillStyle = _style3.fill;
+      var BL = {
+        central: 'middle',
+        middle: 'middle',
+        hanging: 'hanging',
+        alphabetic: 'alphabetic',
+        ideographic: 'ideographic'
+      };
+      var AL = {
+        start: 'start',
+        middle: 'center',
+        end: 'end'
+      };
+      ctx.textBaseline = BL[_style3['dominant-baseline']] || 'alphabetic';
+      ctx.textAlign = AL[_style3['text-anchor']] || 'start';
+      ctx.font = "".concat(_style3['font-weight'] || '', " ").concat(_style3['font-size'], " ").concat(_style3['font-family']);
+    }
+
+    ctx.fillText(children.join(''), _x, _y);
+  }
+
+  children.forEach(function (v) {
+    if (typeof v !== 'string') {
+      render(v, ctx, e);
+    }
+  });
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/render/string.js":
+/*!************************************************!*\
+  !*** ./node_modules/gantt/es/render/string.js ***!
+  \************************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return render; });
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+function attrEscape(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;').replace(/\t/g, '&#x9;').replace(/\n/g, '&#xA;').replace(/\r/g, '&#xD;');
+}
+
+function escape(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\r/g, '&#xD;');
+}
+
+function render(vnode, ctx) {
+  var tag = vnode.tag,
+      props = vnode.props,
+      children = vnode.children;
+  var tokens = [];
+  tokens.push("<".concat(tag));
+  Object.keys(props || {}).forEach(function (k) {
+    var v = props[k];
+    if (k === 'onClick') return;
+
+    if (k === 'style' && _typeof(v) === 'object') {
+      v = Object.keys(v).map(function (i) {
+        return "".concat(i, ":").concat(v[i], ";");
+      }).join('');
+    }
+
+    tokens.push(" ".concat(k, "=\"").concat(attrEscape(v), "\""));
+  });
+
+  if (!children || !children.length) {
+    tokens.push(' />');
+    return tokens.join('');
+  }
+
+  tokens.push('>');
+  children.forEach(function (v) {
+    if (typeof v === 'string') {
+      tokens.push(escape(v));
+    } else {
+      tokens.push(render(v, ctx));
+    }
+  });
+  tokens.push("</".concat(tag, ">"));
+  return tokens.join('');
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/render/svg.js":
+/*!*********************************************!*\
+  !*** ./node_modules/gantt/es/render/svg.js ***!
+  \*********************************************/
+/*! exports provided: default */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return render; });
+function _typeof(obj) { "@babel/helpers - typeof"; if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") { _typeof = function _typeof(obj) { return typeof obj; }; } else { _typeof = function _typeof(obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }; } return _typeof(obj); }
+
+var NS = 'http://www.w3.org/2000/svg';
+var doc = document;
+
+function applyProperties(node, props) {
+  Object.keys(props).forEach(function (k) {
+    var v = props[k];
+
+    if (k === 'style' && _typeof(v) === 'object') {
+      Object.keys(v).forEach(function (sk) {
+        // eslint-disable-next-line
+        node.style[sk] = v[sk];
+      });
+    } else if (k === 'onClick') {
+      if (typeof v === 'function') {
+        node.addEventListener('click', v);
+      }
+    } else {
+      node.setAttribute(k, v);
+    }
+  });
+}
+
+function render(vnode, ctx) {
+  var tag = vnode.tag,
+      props = vnode.props,
+      children = vnode.children;
+  var node = doc.createElementNS(NS, tag);
+
+  if (props) {
+    applyProperties(node, props);
+  }
+
+  children.forEach(function (v) {
+    node.appendChild(typeof v === 'string' ? doc.createTextNode(v) : render(v, ctx));
+  });
+  return node;
+}
+
+/***/ }),
+
+/***/ "./node_modules/gantt/es/utils.js":
+/*!****************************************!*\
+  !*** ./node_modules/gantt/es/utils.js ***!
+  \****************************************/
+/*! exports provided: DAY, addDays, getDates, textWidth, formatMonth, formatDay, minDate, maxDate, max, p2s, s2p, formatData, hasPath, toposort, autoSchedule */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "DAY", function() { return DAY; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "addDays", function() { return addDays; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "getDates", function() { return getDates; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "textWidth", function() { return textWidth; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "formatMonth", function() { return formatMonth; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "formatDay", function() { return formatDay; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "minDate", function() { return minDate; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "maxDate", function() { return maxDate; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "max", function() { return max; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "p2s", function() { return p2s; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "s2p", function() { return s2p; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "formatData", function() { return formatData; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "hasPath", function() { return hasPath; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "toposort", function() { return toposort; });
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "autoSchedule", function() { return autoSchedule; });
+function ownKeys(object, enumerableOnly) { var keys = Object.keys(object); if (Object.getOwnPropertySymbols) { var symbols = Object.getOwnPropertySymbols(object); if (enumerableOnly) symbols = symbols.filter(function (sym) { return Object.getOwnPropertyDescriptor(object, sym).enumerable; }); keys.push.apply(keys, symbols); } return keys; }
+
+function _objectSpread(target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i] != null ? arguments[i] : {}; if (i % 2) { ownKeys(Object(source), true).forEach(function (key) { _defineProperty(target, key, source[key]); }); } else if (Object.getOwnPropertyDescriptors) { Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)); } else { ownKeys(Object(source)).forEach(function (key) { Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key)); }); } } return target; }
+
+function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+
+var DAY = 24 * 3600 * 1000;
+function addDays(date, days) {
+  var d = new Date(date.valueOf());
+  d.setDate(d.getDate() + days);
+  return d;
+}
+function getDates(begin, end) {
+  var dates = [];
+  var s = new Date(begin);
+  s.setHours(24, 0, 0, 0);
+
+  while (s.getTime() <= end) {
+    dates.push(s.getTime());
+    s = addDays(s, 1);
+  }
+
+  return dates;
+}
+var ctx = null;
+function textWidth(text, font, pad) {
+  ctx = ctx || document.createElement('canvas').getContext('2d');
+  ctx.font = font;
+  return ctx.measureText(text).width + pad;
+}
+function formatMonth(date) {
+  var y = date.getFullYear();
+  var m = date.getMonth() + 1;
+  return "".concat(y, "/").concat(m > 9 ? m : "0".concat(m));
+}
+function formatDay(date) {
+  var m = date.getMonth() + 1;
+  var d = date.getDate();
+  return "".concat(m, "/").concat(d);
+}
+function minDate(a, b) {
+  if (a && b) {
+    return a > b ? b : a;
+  }
+
+  return a || b;
+}
+function maxDate(a, b) {
+  if (a && b) {
+    return a < b ? b : a;
+  }
+
+  return a || b;
+}
+function max(list, defaultValue) {
+  if (list.length) {
+    return Math.max.apply(null, list);
+  }
+
+  return defaultValue;
+}
+function p2s(arr) {
+  return arr.map(function (p) {
+    return "".concat(p[0], ",").concat(p[1]);
+  }).join(' ');
+}
+function s2p(str) {
+  return str.split(' ').map(function (s) {
+    var p = s.split(',');
+    return [parseFloat(p[0]), parseFloat(p[1])];
+  });
+}
+
+function walkLevel(nodes, level) {
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+    node.level = "".concat(level).concat(i + 1);
+    node.text = "".concat(node.level, " ").concat(node.name);
+    walkLevel(node.children, "".concat(node.level, "."));
+  }
+}
+
+function walkDates(nodes) {
+  var start = null;
+  var end = null;
+  var percent = 0;
+
+  for (var i = 0; i < nodes.length; i++) {
+    var node = nodes[i];
+
+    if (node.children.length) {
+      var tmp = walkDates(node.children);
+      node.start = tmp.start;
+      node.end = tmp.end;
+      node.percent = tmp.percent;
+
+      if (tmp.start && tmp.end) {
+        node.duration = (tmp.end - tmp.start) / DAY;
+      } else {
+        node.duration = 0;
+      }
+    } else {
+      node.percent = node.percent || 0;
+
+      if (node.start) {
+        node.end = addDays(node.start, node.duration || 0);
+      }
+
+      if (node.type === 'milestone') {
+        node.end = node.start;
+      }
+    }
+
+    start = minDate(start, node.start);
+    end = maxDate(end, node.end);
+    percent += node.percent;
+  }
+
+  if (nodes.length) {
+    percent /= nodes.length;
+  }
+
+  return {
+    start: start,
+    end: end,
+    percent: percent
+  };
+}
+
+function formatData(tasks, links, walk) {
+  var map = {};
+  var tmp = tasks.map(function (t, i) {
+    map[t.id] = i;
+    return _objectSpread(_objectSpread({}, t), {}, {
+      children: [],
+      links: []
+    });
+  });
+  var roots = [];
+  tmp.forEach(function (t) {
+    var parent = tmp[map[t.parent]];
+
+    if (parent) {
+      parent.children.push(t);
+    } else {
+      roots.push(t);
+    }
+  });
+  links.forEach(function (l) {
+    var s = tmp[map[l.source]];
+    var t = tmp[map[l.target]];
+
+    if (s && t) {
+      s.links.push(l);
+    }
+  });
+  walkLevel(roots, '');
+  walkDates(roots);
+
+  if (walk) {
+    walk(roots);
+  }
+
+  var list = [];
+  roots.forEach(function (r) {
+    var stack = [];
+    stack.push(r);
+
+    while (stack.length) {
+      var node = stack.pop();
+      var len = node.children.length;
+
+      if (len) {
+        node.type = 'group';
+      }
+
+      list.push(node);
+
+      for (var i = len - 1; i >= 0; i--) {
+        stack.push(node.children[i]);
+      }
+    }
+  });
+  return list;
+}
+function hasPath(vmap, a, b) {
+  var stack = [];
+  stack.push(vmap[a]);
+
+  while (stack.length) {
+    var v = stack.pop();
+
+    if (v.id === b) {
+      return true;
+    }
+
+    for (var i = 0; i < v.links.length; i++) {
+      stack.push(v.links[i]);
+    }
+  }
+
+  return false;
+}
+function toposort(links) {
+  var vmap = {};
+  links.forEach(function (l) {
+    var init = function init(id) {
+      return {
+        id: id,
+        out: [],
+        "in": 0
+      };
+    };
+
+    vmap[l.source] = init(l.source);
+    vmap[l.target] = init(l.target);
+  });
+
+  for (var i = 0; i < links.length; i++) {
+    var l = links[i];
+    vmap[l.target]["in"]++;
+    vmap[l.source].out.push(i);
+  }
+
+  var s = Object.keys(vmap).map(function (k) {
+    return vmap[k].id;
+  }).filter(function (id) {
+    return !vmap[id]["in"];
+  });
+  var sorted = [];
+
+  while (s.length) {
+    var id = s.pop();
+    sorted.push(id);
+
+    for (var _i = 0; _i < vmap[id].out.length; _i++) {
+      var index = vmap[id].out[_i];
+      var v = vmap[links[index].target];
+      v["in"]--;
+
+      if (!v["in"]) {
+        s.push(v.id);
+      }
+    }
+  }
+
+  return sorted;
+}
+function autoSchedule(tasks, links) {
+  var lockMilestone = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+  var vmap = {};
+  links.forEach(function (l) {
+    vmap[l.source] = {
+      id: l.source,
+      links: []
+    };
+    vmap[l.target] = {
+      id: l.target,
+      links: []
+    };
+  });
+  var dag = [];
+  links.forEach(function (l) {
+    var source = l.source,
+        target = l.target;
+
+    if (!hasPath(vmap, target, source)) {
+      dag.push(l);
+      vmap[source].links.push(vmap[target]);
+    }
+  });
+  var sorted = toposort(dag);
+  var tmap = {};
+
+  for (var i = 0; i < tasks.length; i++) {
+    var task = tasks[i];
+
+    if (task.type === 'milestone') {
+      task.duration = 0;
+    }
+
+    tmap[task.id] = i;
+  }
+
+  var ins = {};
+  sorted.forEach(function (id) {
+    ins[id] = [];
+  });
+  dag.forEach(function (l) {
+    ins[l.target].push(l);
+  });
+  sorted.forEach(function (id) {
+    var task = tasks[tmap[id]];
+    if (!task) return;
+    var days = task.duration || 0;
+
+    if (lockMilestone && task.type === 'milestone') {
+      return;
+    }
+
+    var start = null;
+    var end = null;
+
+    for (var _i2 = 0; _i2 < ins[id].length; _i2++) {
+      var l = ins[id][_i2];
+      var v = tasks[tmap[l.source]];
+
+      if (v && v.start) {
+        var s = addDays(v.start, l.lag || 0);
+        var e = addDays(s, v.duration || 0);
+
+        if (l.type === 'SS') {
+          start = maxDate(start, s);
+        }
+
+        if (l.type === 'FS') {
+          start = maxDate(start, e);
+        }
+
+        if (l.type === 'SF') {
+          end = maxDate(end, s);
+        }
+
+        if (l.type === 'FF') {
+          end = maxDate(end, e);
+        }
+      }
+    }
+
+    if (end) {
+      task.start = addDays(end, -days);
+    }
+
+    if (start) {
+      task.start = start;
+    }
+  });
+}
 
 /***/ }),
 
@@ -49720,9 +51898,12 @@ module.exports = function(module) {
 /*!*****************************!*\
   !*** ./resources/js/app.js ***!
   \*****************************/
-/*! no static exports found */
-/***/ (function(module, exports, __webpack_require__) {
+/*! no exports provided */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
 
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony import */ var gantt__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! gantt */ "./node_modules/gantt/es/index.js");
 /**
  * First we will load all of this project's JavaScript dependencies which
  * includes Vue and other libraries. It is a great starting point when
@@ -49916,6 +52097,8 @@ var options = {
   }*/
 
 };
+var Header;
+var GanttElastic;
 var app = new Vue({
   components: {
     'gantt-header': Header,
@@ -49979,6 +52162,44 @@ app.$on('gantt-elastic-ready', function (ganttElasticInstance) {
 }); // mount gantt to DOM
 
 app.$mount('#app');
+
+var data = [{
+  id: 1,
+  type: 'group',
+  text: '1 Waterfall model',
+  start: new Date('2018-10-10T09:24:24.319Z'),
+  end: new Date('2018-12-12T09:32:51.245Z'),
+  percent: 0.71,
+  links: []
+}, {
+  id: 11,
+  parent: 1,
+  text: '1.1 Requirements',
+  start: new Date('2018-10-21T09:24:24.319Z'),
+  end: new Date('2018-11-22T01:01:08.938Z'),
+  percent: 0.29,
+  links: [{
+    target: 12,
+    type: 'FS'
+  }]
+}, {
+  id: 12,
+  parent: 1,
+  text: '1.2 Design',
+  start: new Date('2018-11-05T09:24:24.319Z'),
+  end: new Date('2018-12-12T09:32:51.245Z'),
+  percent: 0.78
+}];
+new gantt__WEBPACK_IMPORTED_MODULE_0__["SVGGantt"]('#svg-root', data, {
+  viewMode: 'week'
+});
+new gantt__WEBPACK_IMPORTED_MODULE_0__["CanvasGantt"]('#canvas-root', data, {
+  viewMode: 'week'
+});
+var strGantt = new gantt__WEBPACK_IMPORTED_MODULE_0__["StrGantt"](data, {
+  viewMode: 'week'
+});
+undefined.body = strGantt.render();
 
 /***/ }),
 
