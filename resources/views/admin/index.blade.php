@@ -30,8 +30,19 @@
         <div class="bg-primary text-white">未完了目標件数</div>
     </div>
 </div>
+<div style="margin-top:30px; border:1px solid gray;">
+    <form id="form" action="">
+        <p><input type="text" name="title" placeholder="タイトル入力"></p>
+        <p><input type="date" name="start" placeholder="日付入力"></p>
+        <p><input type="color" name="color"></p>
+    </form>
 
-<div class="flexbox-container row">
+    <button id="bt2">
+        Ajax->DBにPostテスト
+    </button>
+</div>
+<!--  
+<div class="flexbox-container row"> 
     <div class="calender col-md-9 h-75">
         <main>
             <div class="container">
@@ -95,53 +106,53 @@
             </div>
         </main>
     </div>
+ -->
+<aside>
+    <div class="rounded">
+        <h4>マイアカウント</h4>
+        <img src="https://www.homepage-tukurikata.com/image/lion.jpg" style="border-radius:50%;" width="70" height="70" title="lion" alt="アカウント画像">
+        <div>ニックネーム</div>
+        <div>誕生日</div>
+        <div>性別</div>
+        <div>年齢</div>
+        <div>趣味</div>
+        <div>ひとこと</div>
+        <a href='/admin/user' class='nav-link' active>マイアカウントの編集</a>
+    </div>
 
-    <aside>
-        <div class="rounded">
-            <h4>マイアカウント</h4>
-            <img src="https://www.homepage-tukurikata.com/image/lion.jpg" style="border-radius:50%;" width="70" height="70" title="lion" alt="アカウント画像">
-            <div>ニックネーム</div>
-            <div>誕生日</div>
-            <div>性別</div>
-            <div>年齢</div>
-            <div>趣味</div>
-            <div>ひとこと</div>
-            <a href='/admin/user' class='nav-link' active>マイアカウントの編集</a>
-        </div>
+    <div class=" rounded">
+        <h4>応援してくれているユーザー</h4>
+        <div>日時</div>
+        <div>応援メッセージ</div>
+        <div>応援メッセージ</div>
+        <div>応援メッセージ</div>
+        <a href='/admin/usermessage' class='nav-link' active>もっと見る</a>
+    </div>
 
-        <div class=" rounded">
-            <h4>応援してくれているユーザー</h4>
-            <div>日時</div>
-            <div>応援メッセージ</div>
-            <div>応援メッセージ</div>
-            <div>応援メッセージ</div>
-            <a href='/admin/usermessage' class='nav-link' active>もっと見る</a>
-        </div>
+    <div class="rounded">
+        <h4>新規登録ユーザー</h4>
+        <div>新着</div>
+        <div>ユーザー名を反映</div>
+        <div>ユーザー名を反映</div>
+        <div>ユーザー名を反映</div>
+    </div>
 
-        <div class="rounded">
-            <h4>新規登録ユーザー</h4>
-            <div>新着</div>
-            <div>ユーザー名を反映</div>
-            <div>ユーザー名を反映</div>
-            <div>ユーザー名を反映</div>
-        </div>
+    <div class="rounded">
+        <h4>目標達成完了ユーザー</h4>
+        <div>新着</div>
+        <div>ユーザー名を反映</div>
+        <div>ユーザー名を反映</div>
+        <div>ユーザー名を反映</div>
+    </div>
 
-        <div class="rounded">
-            <h4>目標達成完了ユーザー</h4>
-            <div>新着</div>
-            <div>ユーザー名を反映</div>
-            <div>ユーザー名を反映</div>
-            <div>ユーザー名を反映</div>
-        </div>
+    <div class="rounded">
+        <h4>年齢の近いユーザー</h4>
+        <div>ユーザー名を反映</div>
+        <div>ユーザー名を反映</div>
+        <div>ユーザー名を反映</div>
+    </div>
 
-        <div class="rounded">
-            <h4>年齢の近いユーザー</h4>
-            <div>ユーザー名を反映</div>
-            <div>ユーザー名を反映</div>
-            <div>ユーザー名を反映</div>
-        </div>
-
-    </aside>
+</aside>
 </div>
 
 <div class="flexbox-container">

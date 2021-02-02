@@ -33,4 +33,5 @@ Route::group(['prefix' => 'admin', 'middleware' => 'auth'], function () {
     Route::post('task/edit', 'Admin\TaskController@update');
     Route::get('wisewords/edit', 'Admin\WisewordsController@edit');
     Route::post('wisewords/edit', 'Admin\WisewordsController@update');
+    Route::post('postevent', 'Admin\WisewordsController@postEvent');
 });
