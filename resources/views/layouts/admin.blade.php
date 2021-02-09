@@ -16,8 +16,8 @@
     <script type="text/javascript" src="{{ asset('js/jquery.ganttView/jquery.ganttView.js') }}"></script> -->
 
     <!-- メンタリング後に入れてみた３行 -->
-    <link href='fullcalendar/main.css' rel='stylesheet'>
-    <script src='fullcalendar/main.js'></script>
+    <link href="{{ asset('js/fullcalendar-5.5.1/lib/main.css') }}" rel='stylesheet'>
+    <script src="{{ asset('js/fullcalendar-5.5.1/lib/main.js') }}"></script>
     <script>
         var calendarEl = document.getElementById('calendar');
 
@@ -33,6 +33,7 @@
     <link href="{{ asset('css/admin.css') }}" rel="stylesheet">
 
     <script>
+        /*
         $("#bt2").click(function() {
             $.ajaxSetup({
                 headers: {
@@ -79,6 +80,7 @@
                     console.log(error.statusText);
                 });
         });
+        */
     </script>
 
 
@@ -121,5 +123,9 @@
     </div>
     <main>
         @yield('content')
+        <div id='calendar'>
+        </div>
+        1111111111111111
     </main>
+
 </body>

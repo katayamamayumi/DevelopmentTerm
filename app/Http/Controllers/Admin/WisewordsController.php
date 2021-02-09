@@ -20,10 +20,13 @@ class WisewordsController extends Controller
     }
     public function postEvent(Request $request)
     {
+        $all_request = $request->all();
+        \Log::debug(__LINE__ . ' ' . __FILE__ . ' ' . print_r($all_request, true));
+        //dd(__LINE__ . ' ' . __FILE__);
         $event = new Event();
-        $event->start = $request->start;
-        $event->title = $request->title;
-        $event->color = $request->color;
+        $event->start = $all_request['start'];
+        $event->title = $all_request['title'];
+        $event->color = $all_request['color'];
 
 
         $event->save();
