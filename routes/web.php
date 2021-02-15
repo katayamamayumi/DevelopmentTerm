@@ -19,6 +19,8 @@ Auth::routes();
 
 Route::get('/home', 'HomeController@index')->name('home');
 
+Route::view('/calendar', 'calendar');
+
 Route::group(['prefix' => 'admin', 'middleware' => 'auth'], function () {
     Route::view('/', 'admin.index');
     Route::get('user/edit', 'Admin\UsersController@edit');
