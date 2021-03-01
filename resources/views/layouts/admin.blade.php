@@ -11,16 +11,6 @@
     <script src="{{ asset('js/app.js') }}" defer></script>
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
     <link href="{{ asset('css/admin.css') }}" rel="stylesheet">
-    <!-- <script type="text/javascript" src="{{ asset('js/jquery.ganttView/lib/jquery-1.4.2.min.js') }}"></script>
-    <script type="text/javascript" src="{{ asset('js/jquery.ganttView/lib/jquery-ui-1.8.2.custom.min.js') }}"></script>
-    <script type="text/javascript" src="{{ asset('js/jquery.ganttView/lib/date.js') }}"></script>
-    <script type="text/javascript" src="{{ asset('js/jquery.ganttView/lib/holidays.js') }}"></script>
-    <script type="text/javascript" src="{{ asset('js/jquery.ganttView/jquery.ganttView.js') }}"></script> -->
-
-    <!-- メンタリング後に入れてみた３行 -->
-    <!-- <link href="{{ asset('js/fullcalendar-5.5.1/lib/main.css') }}" rel='stylesheet'> -->
-    <!-- <script src="{{ asset('js/fullcalendar-5.5.1/lib/main.js') }}"></script> -->
-    <!-- ここまで -->
 </head>
 
 <body>
@@ -59,7 +49,6 @@
     </div>
     <main>
         @yield('content')
-        <div id='calendar'></div>
     </main>
 
 </body>

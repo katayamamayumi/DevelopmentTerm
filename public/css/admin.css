@@ -3,10 +3,6 @@
   border-top: 1px #0b08bb solid;
 }
 
-.flexbox-container {
-  display: flex;
-}
-
 .goal-description {
   padding: 4px 2px;
 }
@@ -27,16 +23,25 @@
   height: 3.5em;
 }
 
-main {
-  margin: 20px 10px 10px;
-  display: grid;
-  grid-template-columns: fr fr fr;
+.flex-container {
+  background-color: #dfdfdf;
+  display: flex;
 }
 
-aside {
+.calendar-area {
+  min-width: 600px;
+  max-width: 1000px;
+  height: 300px;
+  margin: 50px 100px 50px 10px;
   display: grid;
-  margin-right: 10px;
-  gap: 10px;
+  height: auto;
+}
+
+.aside {
+  display: grid;
+  margin-right: 3px;
+  gap: 50px;
+  height: 300px;
 }
 
 .rounded {

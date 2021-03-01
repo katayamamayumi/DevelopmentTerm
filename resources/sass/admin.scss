@@ -2,11 +2,6 @@
 .nav {
   border-bottom: 1px rgb(11, 8, 187) solid;
   border-top: 1px rgb(11, 8, 187) solid;
-
-
-}
-.flexbox-container {
-    display: flex;
 }
 
 .goal-description {
@@ -26,17 +21,27 @@
     height:3.5em;
   }
 }
-
-main {
-  margin: 20px 10px 10px;
+//カレンダー部分
+.flex-container {
+	background-color: #dfdfdf;
+	display: flex;
+}
+.calendar-area {
+  min-width: 600px;
+  max-width: 1000px;
+  height: 300px;
+  margin: 50px 100px 50px 10px;
   display: grid;
-  grid-template-columns: fr fr fr;
-  }
+  height: auto;
+}
 
-aside {
+//サイドバー部分
+.aside {
   display: grid;
-  margin-right: 10px;
-  gap: 10px;
+  margin-right: 3px;
+  gap: 50px;
+  height: 300px;
+
 }
 .rounded {
   display: grid;
@@ -46,7 +51,7 @@ aside {
 }
 
 
-
+//名言部分
 article {
   padding:4px;
   width: 600px;
