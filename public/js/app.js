@@ -87185,6 +87185,30 @@ Vue.component('example-component', __webpack_require__(/*! ./components/ExampleC
 
 
 
+$(window).on('load', function () {
+  $.ajax('/admin/getEvents', {
+    type: 'get',
+    data: {
+      query: $('#keyword').val()
+    },
+    dataType: 'json'
+  }) // 検索成功時にはページに結果を反映
+  .done(function (data) {
+    // 結果リストをクリア
+    $('#result').empty(); // <Question>要素（個々の質問情報）を順番に処理
+
+    $('Question', data).each(function () {
+      // <Url>（詳細ページ）、<Content>（質問本文）を基にリンクリストを生成
+      $('#result').append($('<li></li>').append($('<a></a>').attr({
+        href: $('Url', this).text(),
+        target: '_blank'
+      }).text($('Content', this).text().substring(0, 255) + '...')));
+    });
+  }) // 検索失敗時には、その旨をダイアログ表示
+  .fail(function () {
+    window.alert('正しい結果を得られませんでした。');
+  });
+});
 document.addEventListener('DOMContentLoaded', function () {
   var calendarEl = document.getElementById('calendar');
   var calendar = new _fullcalendar_core__WEBPACK_IMPORTED_MODULE_0__["Calendar"](calendarEl, {
@@ -87202,29 +87226,11 @@ document.addEventListener('DOMContentLoaded', function () {
     },
     // eventTimeFormat: { hour: 'numeric', minute: '2-digit' }
     events: [{
-      title: 'カラオケ',
-      start: '2021-03-03'
-    }, {
-      title: 'ショッピング',
-      start: '2021-03-03'
-    }, {
-      title: '打合せ',
-      start: '2021-03-07T10:00:00',
-      end: '2021-03-07T11:00:00'
-    }, {
-      title: '打ち上げ',
-      start: '2021-03-09T19:00:00'
-    }, {
-      title: '会議',
-      start: '2021-03-14T11:00:00',
-      constraint: 'availableForMeeting'
-    }, {
       title: 'セミナー',
-      start: '2021-03-18T15:00:00',
-      end: '2021-03-18T17:30:00'
+      start: '2021-03-18'
     }, {
       title: 'パーティー',
-      start: '2021-03-23T20:00:00'
+      start: '2021-03-23'
     }, {
       title: '旅行',
       start: '2021-03-26',

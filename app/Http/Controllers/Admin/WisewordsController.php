@@ -32,16 +32,14 @@ class WisewordsController extends Controller
         $event->save();
         return $event;
     }
-    public function getEvent(Request $request)
+    public function getEvents(Request $request)
     {
         $all_request = $request->all();
         \Log::debug(__LINE__ . ' ' . __FILE__ . ' ' . print_r($all_request, true));
-        $event = new Event();
-        $event->start = $all_request['start'];
-        $event->title = $all_request['title'];
-        $event->color = $all_request['color'];
+        $event = new Event;
 
-        $event->save();
-        return $event;
+        $events = $event->all();
+
+        return response()->json($events);
     }
 }
