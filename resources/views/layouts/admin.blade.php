@@ -11,11 +11,14 @@
     <script src="{{ asset('js/app.js') }}" defer></script>
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
     <link href="{{ asset('css/admin.css') }}" rel="stylesheet">
+
 </head>
 
 <body>
     <title>@yield('title')</title>
-    <h1>目標365</h1>
+    <div class="title">
+        <h1>目標365</h1>
+    </div>
 
     <div id="app">
         <div>

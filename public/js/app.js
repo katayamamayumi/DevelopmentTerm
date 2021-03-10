@@ -87188,15 +87188,47 @@ Vue.component('example-component', __webpack_require__(/*! ./components/ExampleC
 document.addEventListener('DOMContentLoaded', function () {
   var calendarEl = document.getElementById('calendar');
   var calendar = new _fullcalendar_core__WEBPACK_IMPORTED_MODULE_0__["Calendar"](calendarEl, {
+    locale: 'ja',
     allDaySlot: false,
     plugins: [_fullcalendar_daygrid__WEBPACK_IMPORTED_MODULE_1__["default"], _fullcalendar_moment_timezone__WEBPACK_IMPORTED_MODULE_3__["default"], _fullcalendar_interaction__WEBPACK_IMPORTED_MODULE_2__["default"]],
     timeZone: 'Asia/Tokyo',
     // momentTimezonePlugin
     defaultView: 'dayGrid',
+    dayCellContent: function dayCellContent(e) {
+      e.dayNumberText = e.dayNumberText.replace('日', '');
+    },
+    footerToolbar: {
+      right: "prev,next"
+    },
+    // eventTimeFormat: { hour: 'numeric', minute: '2-digit' }
     events: [{
-      title: 'Business Lunch',
-      start: '2021-02-03T13:00:00',
-      constraint: 'businessHours'
+      title: 'カラオケ',
+      start: '2021-03-03'
+    }, {
+      title: 'ショッピング',
+      start: '2021-03-03'
+    }, {
+      title: '打合せ',
+      start: '2021-03-07T10:00:00',
+      end: '2021-03-07T11:00:00'
+    }, {
+      title: '打ち上げ',
+      start: '2021-03-09T19:00:00'
+    }, {
+      title: '会議',
+      start: '2021-03-14T11:00:00',
+      constraint: 'availableForMeeting'
+    }, {
+      title: 'セミナー',
+      start: '2021-03-18T15:00:00',
+      end: '2021-03-18T17:30:00'
+    }, {
+      title: 'パーティー',
+      start: '2021-03-23T20:00:00'
+    }, {
+      title: '旅行',
+      start: '2021-03-26',
+      end: '2021-03-31'
     }]
   });
   calendar.render();

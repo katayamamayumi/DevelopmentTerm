@@ -1,7 +1,11 @@
 //TOPページ//
+.title {
+  margin: auto;
+}
 .nav {
   border-bottom: 1px rgb(11, 8, 187) solid;
   border-top: 1px rgb(11, 8, 187) solid;
+  margin:auto;
 }
 
 .goal-description {
@@ -10,76 +14,89 @@
     padding:2px;
     border-radius:10px;
     height:4.5em;
+    margin:auto;
+    
   }
 }
 
 .goal-items div {
   padding:4px 2px;
+   margin:auto;
   div {
     padding:2px;
     border-radius:10px;
     height:3.5em;
+    margin-left: 5px;
+    margin-right: 5px;    
   }
 }
+
 //カレンダー部分
-.flex-container {
-	background-color: #dfdfdf;
-	display: flex;
+.fc-daygrid-day-top {
+  padding: 0 10px;
 }
-.calendar-area {
-  min-width: 600px;
+
+
+/* 日曜日 */
+.fc-day-sun  {
+  color: red;
+  background-color: #f7d7d7;
+  padding: 0 0 0 40px;
+}
+
+/* 土曜日 */
+.fc-day-sat {
+    color: blue;
+    background-color: #cbcbf1;
+    padding: 0 20px;
+}
+#calendar {
+  display: grid;
+  margin: auto;
   max-width: 1000px;
-  height: 300px;
-  margin: 50px 100px 50px 10px;
-  display: grid;
-  height: auto;
-}
-
-//サイドバー部分
-.aside {
-  display: grid;
-  margin-right: 3px;
-  gap: 50px;
-  height: 300px;
 
 }
-.rounded {
-  display: grid;
-  background-color: lightpink;
-  flex-direction: column;
+
+//各カラム
+.container {
+  display:grid;
+  
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  grid-template-rows: 300px 300px ;
+}
+.item {
+  background: #0bd;
+  color: #fff;
   padding: 10px;
+  border-radius:10px;
 }
 
 
-//名言部分
-article {
-  padding:4px;
-  width: 600px;
-  min-width: 600px;
-  max-width: 1000px;
-  margin: 10px 10px;
-  background-color: rgb(185, 144, 238);
-  height: 100px;
-  border-radius:10px;
-  }
 
 
   //task edit//
-  .task-list {
-  padding:4px 2px;
+  .tbl-task {
+    margin: auto;
   }
+  // .task-list {
+  // padding:4px 2px;
+   
+  // }
 
-  table {
-  border-collapse: collapse;
-  margin-right: 10px;
-  margin-left: 10px;
-}
-table th, table td {
-  border: solid 1px black;
-}
+//   table {
+//   border-collapse: collapse;
+//   margin-right: 10px;
+//   margin-left: 10px;
+// }
+ table th, table td {
+   border: solid 1px black;
+  
+ }
 
 
 .tbl-task td:first-child {
+  
   background: lightpink;
 }
 @media screen and (max-width: 640px) {
@@ -112,6 +129,7 @@ table th, table td {
 }
 
 
+
 div { 
   text-align : center;
  }
@@ -123,8 +141,15 @@ div {
   margin-left: 10px;
   margin-right: 10px;
   table-layout: fixed;
-   width: 100%;
+  width: 100%;
 }
-
-
+.myaccount {
+margin: auto;
+width: 200px;
+height: 200px;
+//object-fit: cover;
+ overflow: hidden;
+ position: relative;
+ border-radius: 50%;
+}
 

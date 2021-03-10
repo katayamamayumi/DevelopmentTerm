@@ -5,11 +5,9 @@
 
 @section('content')
 <div class="form-group row">
-    <label class="col-md-2" for="title">画像</label>
-    <div class="col-md-10">
-        <img src="https://www.homepage-tukurikata.com/image/lion.jpg" style="border-radius:50%;" title="lion" alt="アカウント画像">
+    <div class="myaccount">
+        <img src="https://www.homepage-tukurikata.com/image/lion.jpg" title="lion" alt="アカウント画像">
         <input type="file" class="form-control-file" name="image_path_thumbnail">
-
     </div>
 </div>
 <div class="form-group row">
