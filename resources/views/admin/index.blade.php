@@ -86,6 +86,9 @@
             <div>ユーザー名を反映</div>
             <div>ユーザー名を反映</div>
         </dev>
+        <!-- <dev class="item">目標達成写真
+            <div>目標達成写真取得</div>
+        </dev> -->
         <dev class="item"> 本日の名言
             <div>本日の名言を取得</div>
         </dev>

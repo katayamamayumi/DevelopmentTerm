@@ -40,7 +40,7 @@
 
                     </li>
                     <li class='nav-item'>
-                        <a href='/admin/usermessage/edit' class='nav-link' active>最近登録した人 </a>
+                        <a href='/admin/usermessage/edit' class='nav-link' active>最近登録した目標 </a>
 
                     </li>
                     <li class='nav-item'>
@@ -53,5 +53,7 @@
     <main>
         @yield('content')
     </main>
-
+    <!-- <footer>
+        <p>目標365</p>
+    </footer> -->
 </body>

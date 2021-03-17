@@ -87186,62 +87186,95 @@ Vue.component('example-component', __webpack_require__(/*! ./components/ExampleC
 
 
 $(window).on('load', function () {
-  $.ajax('/admin/getEvents', {
+  var result = $.ajax('/admin/getEvents', {
     type: 'get',
     data: {
       query: $('#keyword').val()
     },
-    dataType: 'json'
+    dataType: 'json',
+    async: false
   }) // 検索成功時にはページに結果を反映
   .done(function (data) {
-    // 結果リストをクリア
-    $('#result').empty(); // <Question>要素（個々の質問情報）を順番に処理
+    console.log(data); // 結果リストをクリア
 
-    $('Question', data).each(function () {
-      // <Url>（詳細ページ）、<Content>（質問本文）を基にリンクリストを生成
-      $('#result').append($('<li></li>').append($('<a></a>').attr({
-        href: $('Url', this).text(),
-        target: '_blank'
-      }).text($('Content', this).text().substring(0, 255) + '...')));
-    });
+    $('#result').empty();
   }) // 検索失敗時には、その旨をダイアログ表示
   .fail(function () {
     window.alert('正しい結果を得られませんでした。');
+  }); //console.log(result);
+  //var defaultCalendar = result.responseJSON;
+  //console.log(defaultCalendar);
+
+  var defaultCalendar = [];
+  $.each(result.responseJSON, function (index, val) {
+    defaultCalendar.push({
+      title: val.title,
+      start: val.start
+    });
+  });
+  console.log(defaultCalendar);
+  document.addEventListener('DOMContentLoaded', function (defaultCalendar) {
+    var calendarEl = document.getElementById('calendar');
+    var calendar = new _fullcalendar_core__WEBPACK_IMPORTED_MODULE_0__["Calendar"](calendarEl, {
+      locale: 'ja',
+      allDaySlot: false,
+      plugins: [_fullcalendar_daygrid__WEBPACK_IMPORTED_MODULE_1__["default"], _fullcalendar_moment_timezone__WEBPACK_IMPORTED_MODULE_3__["default"], _fullcalendar_interaction__WEBPACK_IMPORTED_MODULE_2__["default"]],
+      timeZone: 'Asia/Tokyo',
+      // momentTimezonePlugin
+      defaultView: 'dayGrid',
+      dayCellContent: function dayCellContent(e) {
+        e.dayNumberText = e.dayNumberText.replace('日', '');
+      },
+      footerToolbar: {
+        right: "prev,next"
+      },
+      // eventTimeFormat: { hour: 'numeric', minute: '2-digit' }
+      events: [{
+        title: 'セミナー',
+        start: '2021-03-18'
+      }, {
+        title: 'パーティー',
+        start: '2021-03-23'
+      }, {
+        title: '旅行',
+        start: '2021-03-26',
+        end: '2021-03-31'
+      }]
+    });
+    calendar.render();
   });
 });
-document.addEventListener('DOMContentLoaded', function () {
-  var calendarEl = document.getElementById('calendar');
-  var calendar = new _fullcalendar_core__WEBPACK_IMPORTED_MODULE_0__["Calendar"](calendarEl, {
-    locale: 'ja',
-    allDaySlot: false,
-    plugins: [_fullcalendar_daygrid__WEBPACK_IMPORTED_MODULE_1__["default"], _fullcalendar_moment_timezone__WEBPACK_IMPORTED_MODULE_3__["default"], _fullcalendar_interaction__WEBPACK_IMPORTED_MODULE_2__["default"]],
-    timeZone: 'Asia/Tokyo',
-    // momentTimezonePlugin
-    defaultView: 'dayGrid',
-    dayCellContent: function dayCellContent(e) {
-      e.dayNumberText = e.dayNumberText.replace('日', '');
-    },
-    footerToolbar: {
-      right: "prev,next"
-    },
-    // eventTimeFormat: { hour: 'numeric', minute: '2-digit' }
-    events: [{
-      title: 'セミナー',
-      start: '2021-03-18'
-    }, {
-      title: 'パーティー',
-      start: '2021-03-23'
-    }, {
-      title: '旅行',
-      start: '2021-03-26',
-      end: '2021-03-31'
-    }]
-  });
-  calendar.render();
-}); // let calendar = new Calendar(calendarEl, {
-//     plugins: [timeGridPlugin]
-// });
+$('#calendar').fullCalendar({
+  editable: true,
+  viewDisplay: function viewDisplay(view) {
+    $.ajax({
+      url: "json-events.php",
+      dataType: 'json',
+      type: "post",
+      data: {
+        "start": view.start.toString(),
+        "end": view.end.toString()
+      },
+      success: function success(EventSource) {
+        $('#calendar').fullCalendar('removeEvents');
+        $('#calendar').fullCalendar('addEventSource', EventSource);
+      }
+    });
+  },
+  eventDrop: function eventDrop(event, delta) {
+    alert(event.title + ' was moved ' + delta + ' daysn' + '(should probably update your database)');
+  },
+  loading: function loading(bool) {
+    if (bool) $('#loading').show();else $('#loading').hide();
+  },
+  eventDblClick: function eventDblClick(calEvent, jsEvent, view) {
+    alert('Event: ' + calEvent.title);
+    alert('Coordinates: ' + jsEvent.pageX + ',' + jsEvent.pageY);
+    alert('View: ' + view.name); // change the border color just for fun
 
+    $(this).css('border-color', 'red');
+  }
+});
 $("#bt2").on('click', function () {
   $.ajaxSetup({
     headers: {
@@ -87249,7 +87282,8 @@ $("#bt2").on('click', function () {
     }
   });
   var formData = $("#form").serialize();
-  console.log(formData);
+  console.log(formData); //非同期通信＝ajax
+
   $.ajax({
     //POST通信
     type: "post",
@@ -87258,7 +87292,7 @@ $("#bt2").on('click', function () {
     url: "/admin/postevent",
     //通信先のURL
     dataType: "json",
-    // データタイプをjsonで指定
+    // 応答データタイプをjsonで指定
     data: formData // serializeしたデータを指定
 
   }) //通信が成功したとき

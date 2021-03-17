@@ -42,81 +42,118 @@ import interactionPlugin from '@fullcalendar/interaction';
 import momentTimezonePlugin from '@fullcalendar/moment-timezone';
 
 $(window).on('load', function () {
-    $.ajax('/admin/getEvents',
+    var result = $.ajax('/admin/getEvents',
         {
             type: 'get',
             data: { query: $('#keyword').val() },
-            dataType: 'json'
+            dataType: 'json',
+            async: false
         }
     )
         // 検索成功時にはページに結果を反映
         .done(function (data) {
+            console.log(data);
             // 結果リストをクリア
             $('#result').empty();
-            // <Question>要素（個々の質問情報）を順番に処理
-            $('Question', data).each(function () {
-                // <Url>（詳細ページ）、<Content>（質問本文）を基にリンクリストを生成
-                $('#result').append(
-                    $('<li></li>').append(
-                        $('<a></a>')
-                            .attr({
-                                href: $('Url', this).text(),
-                                target: '_blank'
-                            })
-                            .text($('Content', this).text().substring(0, 255) + '...')
-                    )
-                );
-            });
+
         })
         // 検索失敗時には、その旨をダイアログ表示
         .fail(function () {
             window.alert('正しい結果を得られませんでした。');
         });
-});
-document.addEventListener('DOMContentLoaded', function () {
-    const calendarEl = document.getElementById('calendar');
 
-    const calendar = new Calendar(calendarEl, {
-        locale: 'ja',
 
-        allDaySlot: false,
-        plugins: [dayGridPlugin, momentTimezonePlugin, interactionPlugin],
-        timeZone: 'Asia/Tokyo', // momentTimezonePlugin
-        defaultView: 'dayGrid',
-        dayCellContent: function (e) {
-            e.dayNumberText = e.dayNumberText.replace('日', '');
-        },
-        footerToolbar: {
-            right: "prev,next"
-        },
-        // eventTimeFormat: { hour: 'numeric', minute: '2-digit' }
+    //console.log(result);
+    //var defaultCalendar = result.responseJSON;
+    //console.log(defaultCalendar);
+    let defaultCalendar = [];
 
-        events: [
-            {
-                title: 'セミナー',
-                start: '2021-03-18',
-            },
-            {
-                title: 'パーティー',
-                start: '2021-03-23'
-            },
-            {
-                title: '旅行',
-                start: '2021-03-26',
-                end: '2021-03-31'
-            }
-        ]
-
+    $.each(result.responseJSON, function (index, val) {
+        defaultCalendar.push({
+            title: val.title,
+            start: val.start
+        });
     });
+    console.log(defaultCalendar);
 
-    calendar.render();
+
+    document.addEventListener('DOMContentLoaded', function (defaultCalendar) {
+        const calendarEl = document.getElementById('calendar');
+
+        const calendar = new Calendar(calendarEl, {
+            locale: 'ja',
+
+            allDaySlot: false,
+            plugins: [dayGridPlugin, momentTimezonePlugin, interactionPlugin],
+            timeZone: 'Asia/Tokyo', // momentTimezonePlugin
+            defaultView: 'dayGrid',
+            dayCellContent: function (e) {
+                e.dayNumberText = e.dayNumberText.replace('日', '');
+            },
+            footerToolbar: {
+                right: "prev,next"
+            },
+            // eventTimeFormat: { hour: 'numeric', minute: '2-digit' }
+
+            events: [
+                {
+                    title: 'セミナー',
+                    start: '2021-03-18',
+                },
+                {
+                    title: 'パーティー',
+                    start: '2021-03-23'
+                },
+                {
+                    title: '旅行',
+                    start: '2021-03-26',
+                    end: '2021-03-31'
+                }
+            ]
+
+        });
+
+        calendar.render();
+    });
 });
 
 
-// let calendar = new Calendar(calendarEl, {
-//     plugins: [timeGridPlugin]
-// });
+$('#calendar').fullCalendar({
+    editable: true,
+    viewDisplay: function (view) {
+        $.ajax({
+            url: "json-events.php",
+            dataType: 'json',
+            type: "post",
+            data: {
+                "start": view.start.toString(),
+                "end": view.end.toString(),
+            },
+            success: function (EventSource) {
+                $('#calendar').fullCalendar('removeEvents');
+                $('#calendar').fullCalendar('addEventSource', EventSource);
+            }
+        });
+    },
+    eventDrop: function (event, delta) {
+        alert(event.title + ' was moved ' + delta + ' daysn' +
+            '(should probably update your database)');
+    },
+    loading: function (bool) {
+        if (bool) $('#loading').show();
+        else $('#loading').hide();
+    },
+    eventDblClick: function (calEvent, jsEvent, view) {
 
+        alert('Event: ' + calEvent.title);
+        alert('Coordinates: ' + jsEvent.pageX + ',' + jsEvent.pageY);
+        alert('View: ' + view.name);
+
+        // change the border color just for fun
+        $(this).css('border-color', 'red');
+
+    }
+});
 $("#bt2").on('click', function () {
     $.ajaxSetup({
         headers: {
@@ -125,13 +162,13 @@ $("#bt2").on('click', function () {
     });
     var formData = $("#form").serialize();
     console.log(formData);
-
+    //非同期通信＝ajax
     $.ajax({
         //POST通信
         type: "post", //HTTP通信のメソッドをPOSTで指定
         //ここでデータの送信先URLを指定します。
         url: "/admin/postevent", //通信先のURL
-        dataType: "json", // データタイプをjsonで指定
+        dataType: "json", // 応答データタイプをjsonで指定
         data: formData, // serializeしたデータを指定
     })
         //通信が成功したとき
@@ -162,5 +199,7 @@ $("#bt2").on('click', function () {
         .fail((error) => {
             console.log(error.statusText);
         });
+
 });
+
 
