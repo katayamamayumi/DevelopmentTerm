@@ -56,7 +56,7 @@
 </form>
 
 
-<table class="support">
+<!-- <table class="support">
     <thead>
         <tr>
             <th>あなたがサポートしている人</th>
@@ -73,7 +73,7 @@
             </td>
         </tr>
     </tbody>
-</table>
+</table> -->
 
 
 @endsection

@@ -4,7 +4,7 @@
 @section('title', 'ユーザーメッセージ')
 
 @section('content')
-<table class="support">
+<!-- <table class="support">
     <thead>
         <tr>
             <th>最近登録した人</th>
@@ -21,5 +21,5 @@
             </td>
         </tr>
     </tbody>
-</table>
+</table> -->
 @endsection

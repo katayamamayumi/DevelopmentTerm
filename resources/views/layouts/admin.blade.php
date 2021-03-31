@@ -31,21 +31,21 @@
                         <a href='/admin/user/edit' class='nav-link' active>マイページ </a>
 
                     </li>
-                    <li class='nav-item'>
+                    <!-- <li class='nav-item'>
                         <a href='/admin/userfollow/edit' class='nav-link' active>ユーザー応援 </a>
 
-                    </li>
+                    </li> -->
                     <li class='nav-item'>
                         <a href='/admin/task/edit' class='nav-link' active>タスク管理 </a>
 
                     </li>
-                    <li class='nav-item'>
+                    <!-- <li class='nav-item'>
                         <a href='/admin/usermessage/edit' class='nav-link' active>最近登録した目標 </a>
 
                     </li>
                     <li class='nav-item'>
                         <a href='/admin/goal/edit' class='nav-link' active>最近登録された目標 </a>
-                    </li>
+                    </li> -->
                 </ul>
             </nav>
         </div>
@@ -53,7 +53,7 @@
     <main>
         @yield('content')
     </main>
-    <!-- <footer>
+    <footer>
         <p>目標365</p>
-    </footer> -->
+    </footer>
 </body>
